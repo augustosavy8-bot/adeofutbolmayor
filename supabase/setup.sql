@@ -265,3 +265,97 @@ from (values
   (21, 'Benjamin Alvarez',   'mediocampista')
 ) as v(ord, nombre, posicion)
 where not exists (select 1 from public.adeo_jugadores);
+-- adeofutbolmayor :: modulo Facturacion
+-- Replica la planilla FACTURAS <MES>: una fila por factura, agrupadas por mes.
+--
+-- La planilla calcula con formulas y guarda solo el neto:
+--   IVA    = neto * 21/100
+--   TOTAL  = neto + IVA
+--   FUTBOL = IVA / 2
+-- Se mantiene igual: lo unico que se carga a mano es cliente, neto y
+-- responsable; el resto son columnas generadas, asi cualquier consulta las
+-- tiene sin repetir la cuenta.
+
+create table if not exists public.adeo_facturas (
+  id          uuid primary key default gen_random_uuid(),
+  -- primer dia del mes al que pertenece la factura (2026-08-01 = AGOSTO 2026)
+  periodo     date not null,
+  cliente     text not null,
+  neto        numeric(14,2) not null default 0,
+  -- por si algun dia hay que facturar al 10,5%
+  alicuota    numeric(5,4) not null default 0.21,
+  -- la columna G de la planilla: quien trajo la factura
+  responsable text,
+  created_at  timestamptz not null default now(),
+
+  -- El IVA se redondea a centavos por factura, que es lo que sale en cada
+  -- comprobante. `futbol` NO lleva un segundo redondeo: si se redondeara por
+  -- fila, el medio centavo de cada una se acumula y el total del mes deja de
+  -- ser exactamente la mitad del IVA. Se muestra redondeado.
+  iva    numeric(14,2) generated always as (round(neto * alicuota, 2)) stored,
+  total  numeric(14,2) generated always as (neto + round(neto * alicuota, 2)) stored,
+  futbol numeric         generated always as (round(neto * alicuota, 2) / 2) stored
+);
+
+create index if not exists adeo_facturas_periodo_idx
+  on public.adeo_facturas (periodo, created_at);
+
+-- ------------------------------------------------------------------- RLS
+alter table public.adeo_facturas enable row level security;
+
+drop policy if exists adeo_facturas_authenticated_all on public.adeo_facturas;
+create policy adeo_facturas_authenticated_all
+  on public.adeo_facturas
+  for all
+  to authenticated
+  using (true)
+  with check (true);
+
+-- -------------------------------------------------------------- realtime
+alter table public.adeo_facturas replica identity full;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.adeo_facturas;
+exception
+  when duplicate_object then null;
+end
+$$;
+-- adeofutbolmayor :: facturacion de agosto 2026
+-- Carga inicial tomada de la planilla FACTURAS_AGOSTO.xlsx.
+-- Idempotente: si el periodo ya tiene facturas, no vuelve a insertar.
+-- created_at se desplaza por fila para conservar el orden de la planilla.
+
+insert into public.adeo_facturas (periodo, cliente, neto, responsable, created_at)
+select date '2026-08-01', v.cliente, v.neto, v.responsable,
+       now() + (v.ord * interval '1 millisecond')
+from (values
+  ( 1, 'AXION'               ,     44264.98, 'MONCHO'),
+  ( 2, 'CUTINI'              ,    115124.01, 'BRUNO'),
+  ( 3, 'CUTINI'              ,    167933.89, 'BRUNO'),
+  ( 4, 'GRUPO PAGNUTTI'      ,      53719.0, 'LUCHO'),
+  ( 5, 'BRITO NORBERTO'      ,     14876.03, 'LUCHO'),
+  ( 6, 'JOHANSEN'            ,    296632.57, 'CLUB'),
+  ( 7, 'CUTINI'              ,    330578.51, 'BRUNO'),
+  ( 8, 'JOHANSEN'            ,     29893.91, 'TOMI'),
+  ( 9, 'JOHANSEN'            ,     60473.83, 'TOMI'),
+  (10, 'YPF'                 ,     28969.26, 'TOMI'),
+  (11, 'YPF'                 ,     28978.94, 'BRUNO'),
+  (12, 'TODO BRASA'          ,     33057.86, 'LUCHO'),
+  (13, 'YPF'                 ,     65212.74, 'SERA'),
+  (14, 'BYECON'              ,     48925.62, 'FRANCO.A'),
+  (15, 'MAYORISTA DEL SUR'   ,    560619.78, 'DAMIAN'),
+  (16, 'INGENIO'             ,     39755.66, 'DAMIAN'),
+  (17, 'DIMARTSKY'           ,     47292.37, 'DAMIAN'),
+  (18, 'MAYORISTA DEL SUR'   ,     48975.21, 'DAMIAN'),
+  (19, 'RESTOLBY'            ,     23801.65, 'LUCHO'),
+  (20, 'MARASCA'             ,    142986.69, 'BRUNO'),
+  (21, 'YPF'                 ,     43494.41, 'BRUNO'),
+  (22, 'YPF'                 ,     36238.23, 'TOMI'),
+  (23, 'JOHANSEN'            ,     71860.54, 'TOMI'),
+  (24, 'JOHANSEN'            ,     19794.47, 'TOMI'),
+  (25, 'MARASCA'             ,     262813.8, 'BRUNO')
+) as v(ord, cliente, neto, responsable)
+where not exists (
+  select 1 from public.adeo_facturas where periodo = date '2026-08-01'
+);

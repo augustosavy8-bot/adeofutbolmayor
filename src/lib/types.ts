@@ -56,6 +56,31 @@ export type PersonaInsert = {
   created_at?: string;
 };
 
+export type Factura = {
+  id: string;
+  /** Primer día del mes al que pertenece: '2026-08-01' = agosto 2026. */
+  periodo: string;
+  cliente: string;
+  neto: number;
+  alicuota: number;
+  responsable: string | null;
+  created_at: string;
+  /** Calculadas en la base a partir de neto y alicuota. */
+  iva: number;
+  total: number;
+  futbol: number;
+};
+
+export type FacturaInsert = {
+  id?: string;
+  periodo: string;
+  cliente: string;
+  neto?: number;
+  alicuota?: number;
+  responsable?: string | null;
+  created_at?: string;
+};
+
 export type JugadorInsert = {
   id?: string;
   nombre: string;
@@ -87,6 +112,12 @@ export type Database = {
         Row: Jugador;
         Insert: JugadorInsert;
         Update: Partial<JugadorInsert>;
+        Relationships: [];
+      };
+      adeo_facturas: {
+        Row: Factura;
+        Insert: FacturaInsert;
+        Update: Partial<FacturaInsert>;
         Relationships: [];
       };
     };

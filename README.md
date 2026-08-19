@@ -9,6 +9,7 @@ Módulos activos:
 
 - **Camisetas** — control de conjuntos: talles y señas.
 - **Plantel** — jugadores por puesto, con foto, sueldo y estado de pago.
+- **Facturas** — facturación mes a mes: cliente, neto, IVA, total y la parte del fútbol.
 
 La estructura (sidebar + route group `(panel)`) ya queda lista para sumar cuotas, fichajes, etc.
 
@@ -37,6 +38,13 @@ En el SQL Editor de Supabase, correr en orden:
 3. `supabase/migrations/0003_plantel.sql` — tabla `adeo_jugadores`, RLS, realtime y el bucket
    `jugadores` de Storage para las fotos.
 4. `supabase/migrations/0004_seed_plantel.sql` — plantel inicial (idempotente).
+5. `supabase/migrations/0005_facturas.sql` — tabla `adeo_facturas`, RLS y realtime.
+6. `supabase/migrations/0006_seed_facturas.sql` — facturación de agosto 2026 (idempotente).
+
+En `adeo_facturas` solo se carga `cliente`, `neto` y `responsable`: `iva`, `total` y
+`futbol` son columnas generadas, con las mismas cuentas que hacía la planilla. El IVA se
+redondea a centavos por factura y `futbol` es la mitad exacta de ese IVA, sin redondear de
+nuevo, para que el total del mes dé justo la mitad del IVA del mes.
 
 El bucket `jugadores` queda **público para lectura** (las fotos se sirven en `<img>` sin token)
 y con escritura solo para usuarios logueados. Las fotos se achican a 800px y se convierten a
@@ -98,12 +106,14 @@ src/
     (panel)/            layout protegido con sidebar
       camisetas/        módulo de conjuntos
       plantel/          módulo de jugadores
+      facturas/         módulo de facturación
     auth/               callback, confirm y signout del magic link
     login/              ingreso por email
   components/
     panel/              shell, sidebar, header
     camisetas/          tablas, resumen y export del pedido
     plantel/            cards de jugadores, resumen y carga de fotos
+    facturas/           tabla de facturación por mes, totales y resumen
   lib/                  clientes de Supabase, tipos, talles, posiciones, formato
 supabase/migrations/    SQL de esquema y seed
 ```
