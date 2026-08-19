@@ -19,7 +19,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" className="dark">
-      <body className="min-h-dvh bg-panel-950 text-zinc-100">{children}</body>
+      <body className="min-h-dvh bg-panel-950 font-sans text-zinc-100">{children}</body>
     </html>
   );
 }
