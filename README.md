@@ -3,6 +3,8 @@
 Panel de gestión del fútbol mayor del **Club ADEO**.
 Next.js 14 (App Router) + Supabase + TypeScript + Tailwind.
 
+**En producción: https://adeofutbolmayor-augusavy.vercel.app**
+
 Módulo activo: **Camisetas** (control de conjuntos: talles y señas).
 La estructura (sidebar + route group `(panel)`) ya queda lista para sumar cuotas, fichajes, etc.
 
@@ -55,10 +57,18 @@ npm run dev
 
 ## 7. Deploy en Vercel
 
-1. Subir el repo a GitHub.
-2. En Vercel: *New Project* → importar el repo (framework Next.js, se detecta solo).
-3. Cargar `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` en *Environment Variables*.
-4. Deploy y agregar la URL final a las *Redirect URLs* de Supabase.
+El proyecto ya existe en Vercel (`adeofutbolmayor`, team `augusavy`) y la primera
+subida se hizo por upload directo de archivos.
+
+Para que cada push a `main` redespliegue solo:
+
+1. Vercel → proyecto `adeofutbolmayor` → *Settings* → *Git* → *Connect Git Repository*
+   → elegir `augustosavy8-bot/adeofutbolmayor`.
+2. *Settings* → *Environment Variables*: cargar `NEXT_PUBLIC_SUPABASE_URL` y
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY` para *Production* y *Preview*. Sin esto el build
+   desde git no levanta, porque el repo no incluye ningún `.env`.
+3. Agregar la URL de producción a las *Redirect URLs* de Supabase
+   (`https://adeofutbolmayor-augusavy.vercel.app/auth/callback`).
 
 ## Estructura
 
