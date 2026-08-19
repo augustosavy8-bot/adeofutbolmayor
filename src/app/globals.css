@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  @apply bg-panel-950 text-zinc-100 antialiased;
+}
+
+/* Scrollbar acorde al panel */
+* {
+  scrollbar-color: #3a3a43 transparent;
+  scrollbar-width: thin;
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-panel-700 bg-panel-900 shadow-card;
+  }
+
+  .input-base {
+    @apply w-full rounded-lg border border-panel-700 bg-panel-850 px-2.5 py-2 text-sm
+           text-zinc-100 outline-none transition
+           focus:border-adeo-rojo focus:ring-1 focus:ring-adeo-rojo/60
+           disabled:opacity-50;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm
+           font-medium transition disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-adeo-rojo text-white hover:bg-adeo-rojo-claro active:bg-adeo-rojo-oscuro;
+  }
+
+  .btn-ghost {
+    @apply btn border border-panel-700 bg-panel-850 text-zinc-200 hover:bg-panel-800;
+  }
+
+  .chip {
+    @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+}
