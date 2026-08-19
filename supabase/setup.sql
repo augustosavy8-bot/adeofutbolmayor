@@ -175,3 +175,93 @@ cross join (values
 ) as v(ord, nombre, pantalon, chomba)
 where g.nombre = 'Comisión'
   and not exists (select 1 from public.adeo_personas p where p.grupo_id = g.id);
+-- adeofutbolmayor :: modulo Plantel
+-- Jugadores por posicion, con sueldo y estado de pago.
+
+create table if not exists public.adeo_jugadores (
+  id         uuid primary key default gen_random_uuid(),
+  nombre     text not null,
+  posicion   text not null check (posicion in ('arquero', 'defensor', 'mediocampista', 'delantero')),
+  sueldo     numeric(12,2) not null default 0,
+  al_dia     boolean not null default false,
+  -- ruta dentro del bucket 'jugadores' de Storage; la URL publica se arma en el front
+  foto_path  text,
+  orden      int not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists adeo_jugadores_orden_idx on public.adeo_jugadores (orden, created_at);
+
+-- ------------------------------------------------------------------- RLS
+alter table public.adeo_jugadores enable row level security;
+
+drop policy if exists adeo_jugadores_authenticated_all on public.adeo_jugadores;
+create policy adeo_jugadores_authenticated_all
+  on public.adeo_jugadores
+  for all
+  to authenticated
+  using (true)
+  with check (true);
+
+-- -------------------------------------------------------------- realtime
+alter table public.adeo_jugadores replica identity full;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.adeo_jugadores;
+exception
+  when duplicate_object then null;
+end
+$$;
+
+-- --------------------------------------------------- fotos de los jugadores
+-- Bucket publico: las fotos se leen sin token (van en <img>), pero solo un
+-- usuario logueado puede subirlas o borrarlas.
+insert into storage.buckets (id, name, public)
+values ('jugadores', 'jugadores', true)
+on conflict (id) do nothing;
+
+drop policy if exists adeo_fotos_lectura_publica on storage.objects;
+create policy adeo_fotos_lectura_publica
+  on storage.objects
+  for select
+  to public
+  using (bucket_id = 'jugadores');
+
+drop policy if exists adeo_fotos_escritura_autenticada on storage.objects;
+create policy adeo_fotos_escritura_autenticada
+  on storage.objects
+  for all
+  to authenticated
+  using (bucket_id = 'jugadores')
+  with check (bucket_id = 'jugadores');
+-- adeofutbolmayor :: plantel inicial
+-- Idempotente: si ya hay jugadores cargados, no vuelve a insertar.
+-- El sueldo y el estado de pago se cargan despues desde el panel.
+
+insert into public.adeo_jugadores (nombre, posicion, orden)
+select v.nombre, v.posicion, v.ord
+from (values
+  ( 1, 'Julio Borini',       'delantero'),
+  ( 2, 'Zaca Acosta',        'defensor'),
+  ( 3, 'Ignacio Montenegro', 'arquero'),
+  ( 4, 'Alex Blasco',        'defensor'),
+  ( 5, 'Facundo Lavini',     'mediocampista'),
+  ( 6, 'Angelo Olivanti',    'defensor'),
+  ( 7, 'Diego Paniagua',     'delantero'),
+  ( 8, 'Santino Bertorello', 'delantero'),
+  ( 9, 'Joaquin Lenardon',   'mediocampista'),
+  (10, 'Joaquin Sosa',       'delantero'),
+  (11, 'Valentin Mercuri',   'defensor'),
+  (12, 'Fernando Sánchez',   'delantero'),
+  (13, 'Alexander Ortiz',    'delantero'),
+  (14, 'Facundo Taborra',    'arquero'),
+  (15, 'Ezequiel Zurita',    'defensor'),
+  (16, 'David Diaz',         'mediocampista'),
+  (17, 'Mauricio Germi',     'delantero'),
+  (18, 'Agustin Germi',      'defensor'),
+  (19, 'Mauro Vega',         'mediocampista'),
+  (20, 'Lucas Amarilla',     'mediocampista'),
+  (21, 'Benjamin Alvarez',   'mediocampista')
+) as v(ord, nombre, posicion)
+where not exists (select 1 from public.adeo_jugadores);
