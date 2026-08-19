@@ -48,10 +48,10 @@ export default function LoginPage() {
           <Image
             src="/adeo-logo.png"
             alt="Escudo de la Asociación Deportiva Everton Olimpia"
-            width={348}
-            height={356}
+            width={128}
+            height={131}
             priority
-            className="h-32 w-32 object-contain drop-shadow-[0_8px_24px_rgba(0,0,0,.6)] sm:h-40 sm:w-40"
+            className="h-32 w-32 object-contain drop-shadow-[0_8px_24px_rgba(0,0,0,.6)]"
           />
           <h1 className="mt-5 text-2xl font-bold tracking-tight">
             ADEO <span className="text-adeo-rojo">Fútbol Mayor</span>
