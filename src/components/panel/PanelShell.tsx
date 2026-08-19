@@ -5,10 +5,10 @@ import { useEffect, useState } from 'react';
 import { Sidebar } from './Sidebar';
 
 export function PanelShell({
-  email,
+  usuario,
   children,
 }: {
-  email: string | null;
+  usuario: string;
   children: React.ReactNode;
 }) {
   const [colapsado, setColapsado] = useState(false);
@@ -79,8 +79,8 @@ export function PanelShell({
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="hidden max-w-[180px] truncate text-xs text-zinc-400 lg:block">
-              {email}
+            <span className="hidden max-w-[180px] truncate text-xs text-zinc-400 sm:block">
+              {usuario}
             </span>
             <form action="/auth/signout" method="post">
               <button type="submit" className="btn-ghost px-2.5 py-2 text-xs">

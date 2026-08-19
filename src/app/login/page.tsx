@@ -1,38 +1,44 @@
 'use client';
 
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { usuarioAEmail } from '@/lib/auth';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [estado, setEstado] = useState<'idle' | 'enviando' | 'enviado'>('idle');
+  const router = useRouter();
+  const [usuario, setUsuario] = useState('');
+  const [password, setPassword] = useState('');
+  const [verPassword, setVerPassword] = useState(false);
+  const [entrando, setEntrando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function enviarLink(e: React.FormEvent) {
+  async function entrar(e: React.FormEvent) {
     e.preventDefault();
-    setEstado('enviando');
+    setEntrando(true);
     setError(null);
 
-    // Si el middleware nos mandó acá desde otra ruta, volvemos a esa.
-    const destino = new URLSearchParams(window.location.search).get('next');
-    const callback = new URL('/auth/callback', window.location.origin);
-    if (destino && destino.startsWith('/')) callback.searchParams.set('next', destino);
-
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: {
-        emailRedirectTo: callback.toString(),
-      },
+    const { error } = await supabase.auth.signInWithPassword({
+      email: usuarioAEmail(usuario),
+      password,
     });
 
     if (error) {
-      setError(error.message);
-      setEstado('idle');
+      setError(
+        error.message === 'Invalid login credentials'
+          ? 'Usuario o contraseña incorrectos.'
+          : error.message
+      );
+      setEntrando(false);
       return;
     }
-    setEstado('enviado');
+
+    // Si el middleware nos mandó acá desde otra ruta, volvemos a esa.
+    const destino = new URLSearchParams(window.location.search).get('next');
+    router.replace(destino && destino.startsWith('/') ? destino : '/camisetas');
+    router.refresh();
   }
 
   return (
@@ -41,72 +47,76 @@ export default function LoginPage() {
         <div className="mb-8 flex flex-col items-center text-center">
           <Image
             src="/adeo-logo.png"
-            alt="Escudo ADEO"
-            width={88}
-            height={88}
+            alt="Escudo de la Asociación Deportiva Everton Olimpia"
+            width={348}
+            height={356}
             priority
-            className="h-22 w-22 object-contain"
+            className="h-32 w-32 object-contain drop-shadow-[0_8px_24px_rgba(0,0,0,.6)] sm:h-40 sm:w-40"
           />
-          <h1 className="mt-4 text-2xl font-bold tracking-tight">
+          <h1 className="mt-5 text-2xl font-bold tracking-tight">
             ADEO <span className="text-adeo-rojo">Fútbol Mayor</span>
           </h1>
           <p className="mt-1 text-sm text-zinc-400">Panel de gestión</p>
         </div>
 
         <div className="card p-5">
-          {estado === 'enviado' ? (
-            <div className="text-center">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-adeo-rojo/15 text-2xl">
-                ✉️
-              </div>
-              <p className="font-medium">Revisá tu mail</p>
-              <p className="mt-1 text-sm text-zinc-400">
-                Te mandamos un link de acceso a{' '}
-                <span className="text-zinc-200">{email}</span>.
-              </p>
-              <button
-                type="button"
-                onClick={() => setEstado('idle')}
-                className="btn-ghost mt-4 w-full"
-              >
-                Usar otro mail
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={enviarLink} className="space-y-3">
-              <label className="block text-sm font-medium text-zinc-300">
-                Email
+          <form onSubmit={entrar} className="space-y-3">
+            <label className="block text-sm font-medium text-zinc-300">
+              Usuario
+              <input
+                type="text"
+                required
+                autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                value={usuario}
+                onChange={(e) => setUsuario(e.target.value)}
+                placeholder="usuario"
+                className="input-base mt-1.5"
+              />
+            </label>
+
+            <label className="block text-sm font-medium text-zinc-300">
+              Contraseña
+              <div className="relative mt-1.5">
                 <input
-                  type="email"
+                  type={verPassword ? 'text' : 'password'}
                   required
-                  autoComplete="email"
-                  inputMode="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="vos@ejemplo.com"
-                  className="input-base mt-1.5"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="input-base pr-16"
                 />
-              </label>
+                <button
+                  type="button"
+                  onClick={() => setVerPassword((v) => !v)}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-xs font-medium text-zinc-400 transition hover:text-zinc-100"
+                >
+                  {verPassword ? 'Ocultar' : 'Ver'}
+                </button>
+              </div>
+            </label>
 
-              {error && (
-                <p className="rounded-lg bg-adeo-rojo/10 px-3 py-2 text-sm text-adeo-rojo-claro">
-                  {error}
-                </p>
-              )}
-
-              <button
-                type="submit"
-                disabled={estado === 'enviando'}
-                className="btn-primary w-full"
-              >
-                {estado === 'enviando' ? 'Enviando…' : 'Enviar link de acceso'}
-              </button>
-              <p className="text-center text-xs text-zinc-500">
-                Sin contraseña: entrás con un link mágico al mail.
+            {error && (
+              <p className="rounded-lg bg-adeo-rojo/10 px-3 py-2 text-sm text-adeo-rojo-claro">
+                {error}
               </p>
-            </form>
-          )}
+            )}
+
+            <button
+              type="submit"
+              disabled={entrando || !usuario.trim() || !password}
+              className="btn-primary w-full"
+            >
+              {entrando ? 'Entrando…' : 'Entrar'}
+            </button>
+          </form>
         </div>
+
+        <p className="mt-6 text-center text-xs text-zinc-600">
+          Asociación Deportiva Everton Olimpia · Cañada de Gómez
+        </p>
       </div>
     </main>
   );

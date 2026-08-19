@@ -33,16 +33,20 @@ En el SQL Editor de Supabase, correr en orden:
 
 Con Supabase CLI: `supabase db push`.
 
-## 4. Auth (magic link)
+## 4. Auth (usuario + contraseña)
 
-En Supabase → Authentication:
+El panel entra con usuario y contraseña, no con mail. Supabase Auth necesita un email,
+así que `src/lib/auth.ts` mapea el usuario a uno interno: `usuario` → `usuario@adeofutbolmayor.com`.
 
-- **Providers → Email**: activar *Email* y desactivar *Confirm password* (se usa OTP por link).
-- **URL Configuration → Site URL**: `http://localhost:3000` en local, el dominio de Vercel en producción.
-- **Redirect URLs**: agregar `http://localhost:3000/auth/callback` y `https://TU-APP.vercel.app/auth/callback`.
+Para dar de alta a alguien, en Supabase → Authentication → Users → **Add user**:
 
-Cualquier usuario autenticado lee y escribe todo (política única por ahora).
-Para restringir quién entra, limitar el registro desde Supabase o refinar las policies más adelante.
+- Email: `<usuario>@adeofutbolmayor.com`
+- Password: la que corresponda
+- Tildar **Auto Confirm User** (si no, queda sin confirmar y no puede entrar)
+
+Importante: en Authentication → Sign In / Providers → Email, dejar **Allow new users to
+sign up** desactivado. Si queda activo, cualquiera con la anon key (que es pública) puede
+crearse una cuenta y, con la policy actual, leer y escribir todo.
 
 ## 5. Escudo
 

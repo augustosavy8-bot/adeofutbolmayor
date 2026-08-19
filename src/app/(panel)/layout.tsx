@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { PanelShell } from '@/components/panel/PanelShell';
 import { createClient } from '@/lib/supabase/server';
+import { emailAUsuario } from '@/lib/auth';
 
 export default async function PanelLayout({
   children,
@@ -14,5 +15,7 @@ export default async function PanelLayout({
 
   if (!user) redirect('/login');
 
-  return <PanelShell email={user.email ?? null}>{children}</PanelShell>;
+  return (
+    <PanelShell usuario={emailAUsuario(user.email)}>{children}</PanelShell>
+  );
 }
