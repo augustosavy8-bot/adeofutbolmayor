@@ -72,18 +72,23 @@ npm run dev
 
 ## 7. Deploy en Vercel
 
-El proyecto ya existe en Vercel (`adeofutbolmayor`, team `augusavy`) y la primera
-subida se hizo por upload directo de archivos.
+El proyecto vive en Vercel (`adeofutbolmayor`, team `augusavy`) y ya está conectado
+al repo: cada push a `main` publica a producción y cada push a otra rama levanta un
+preview.
 
-Para que cada push a `main` redespliegue solo:
+Las variables `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` tienen que
+estar cargadas en *Settings* → *Environment Variables* para **Production, Preview y
+Development**. Son `NEXT_PUBLIC_*`, así que se hornean en el build: si faltan, el
+deploy compila igual pero después tira 500 en cada request
+(`MIDDLEWARE_INVOCATION_FAILED`, "Your project's URL and Key are required to create a
+Supabase client"). El repo no incluye ningún `.env`, por eso no se puede depender de él.
 
-1. Vercel → proyecto `adeofutbolmayor` → *Settings* → *Git* → *Connect Git Repository*
-   → elegir `augustosavy8-bot/adeofutbolmayor`.
-2. *Settings* → *Environment Variables*: cargar `NEXT_PUBLIC_SUPABASE_URL` y
-   `NEXT_PUBLIC_SUPABASE_ANON_KEY` para *Production* y *Preview*. Sin esto el build
-   desde git no levanta, porque el repo no incluye ningún `.env`.
-3. Agregar la URL de producción a las *Redirect URLs* de Supabase
-   (`https://adeofutbolmayor-augusavy.vercel.app/auth/callback`).
+Cuidado con subir builds a mano (upload directo): pisan el deploy de git y quedan como
+producción, con las claves horneadas de un `.env.local` local. Sirve como parche, pero
+tapa que la config de Vercel está incompleta.
+
+La URL de producción también va en las *Redirect URLs* de Supabase
+(`https://adeofutbolmayor-augusavy.vercel.app/auth/callback`).
 
 ## Estructura
 
