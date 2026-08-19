@@ -1,3 +1,5 @@
+import { SUPABASE_URL } from './config';
+
 /** Bucket público donde viven las fotos del plantel. */
 export const BUCKET_JUGADORES = 'jugadores';
 
@@ -8,5 +10,5 @@ export const BUCKET_JUGADORES = 'jugadores';
  */
 export function urlFoto(path: string | null | undefined) {
   if (!path) return null;
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${BUCKET_JUGADORES}/${path}`;
+  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_JUGADORES}/${path}`;
 }
