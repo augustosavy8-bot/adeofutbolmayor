@@ -46,32 +46,48 @@ export function CargarFactura({ periodo, onAgregar }: Props) {
         Cargar factura en {nombreMes(periodo)}
       </p>
 
-      <div className="flex flex-wrap gap-2">
-        <input
-          ref={campoCliente}
-          aria-label="Cliente"
-          value={cliente}
-          onChange={(e) => setCliente(e.target.value)}
-          placeholder="Cliente"
-          className="input-base min-w-0 flex-1 uppercase"
-        />
-        <input
-          aria-label="Importe neto"
-          inputMode="decimal"
-          value={neto}
-          onChange={(e) => setNeto(e.target.value)}
-          placeholder="Importe neto"
-          className="input-base w-32 text-right tabular-nums"
-        />
-        <input
-          aria-label="Responsable"
-          list="adeo-responsables"
-          value={responsable}
-          onChange={(e) => setResponsable(e.target.value)}
-          placeholder="Responsable"
-          className="input-base w-32 uppercase"
-        />
-        <button type="submit" disabled={!cliente.trim()} className="btn-primary">
+      {/* En el celular se apila: cliente a lo ancho, importe y responsable a
+          la mitad cada uno y el botón abajo. En una fila sola el campo de
+          cliente quedaba de dos caracteres. */}
+      <div className="grid grid-cols-2 items-end gap-2 sm:grid-cols-[minmax(0,1fr)_9rem_9rem_auto]">
+        <label className="col-span-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 sm:col-span-1">
+          Cliente
+          <input
+            ref={campoCliente}
+            value={cliente}
+            onChange={(e) => setCliente(e.target.value)}
+            placeholder="Nombre"
+            className="input-base mt-0.5 uppercase"
+          />
+        </label>
+
+        <label className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+          Importe neto
+          <input
+            inputMode="decimal"
+            value={neto}
+            onChange={(e) => setNeto(e.target.value)}
+            placeholder="0,00"
+            className="input-base mt-0.5 text-right tabular-nums"
+          />
+        </label>
+
+        <label className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+          Responsable
+          <input
+            list="adeo-responsables"
+            value={responsable}
+            onChange={(e) => setResponsable(e.target.value)}
+            placeholder="—"
+            className="input-base mt-0.5 uppercase"
+          />
+        </label>
+
+        <button
+          type="submit"
+          disabled={!cliente.trim()}
+          className="btn-primary col-span-2 sm:col-span-1"
+        >
           Agregar
         </button>
       </div>
