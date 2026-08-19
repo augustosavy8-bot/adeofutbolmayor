@@ -6,9 +6,11 @@ import { createClient } from '@/lib/supabase/client';
 import type { Factura } from '@/lib/types';
 import { formatPesosConCentavos, parseMonto } from '@/lib/format';
 import { calcularFactura } from '@/lib/factura';
-import { correrPeriodo, nombrePeriodo, periodoDe } from '@/lib/periodos';
+import { anioDe, nombreMes, nombrePeriodo, periodoDe } from '@/lib/periodos';
 import { ResumenFacturas } from './ResumenFacturas';
-import { FilaFactura } from './FilaFactura';
+import { ResumenAnual } from './ResumenAnual';
+import { SelectorMes } from './SelectorMes';
+import { COLUMNAS, FilaFactura } from './FilaFactura';
 
 const DEBOUNCE_MS = 600;
 
@@ -194,10 +196,15 @@ export function FacturasClient({
     };
   }, [supabase]);
 
-  const periodos = useMemo(() => {
-    const vistos = new Set(facturas.map((f) => f.periodo));
-    vistos.add(periodo);
-    return [...vistos].sort().reverse();
+  const conDatos = useMemo(
+    () => new Set(facturas.map((f) => f.periodo)),
+    [facturas]
+  );
+
+  const anios = useMemo(() => {
+    const vistos = new Set(facturas.map((f) => anioDe(f.periodo)));
+    vistos.add(anioDe(periodo));
+    return [...vistos].sort();
   }, [facturas, periodo]);
 
   const delMes = facturas.filter((f) => f.periodo === periodo);
@@ -228,37 +235,21 @@ export function FacturasClient({
     .sort((a, b) => b.neto - a.neto);
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-5">
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
+      {/* Una sola vez para todas las filas: repetirlo por fila duplica el id. */}
+      <datalist id="adeo-responsables">
+        {responsables.map((r) => (
+          <option key={r} value={r} />
+        ))}
+      </datalist>
+
+      <div className="flex items-center gap-3">
         <div className="min-w-0">
           <h1 className="text-xl font-bold sm:text-2xl">Facturas</h1>
           <p className="text-sm text-zinc-400">
             Facturación del fútbol mayor, mes a mes
           </p>
         </div>
-
-        <select
-          aria-label="Mes"
-          value={periodo}
-          onChange={(e) => setPeriodo(e.target.value)}
-          className="input-base w-auto appearance-none font-semibold"
-        >
-          {periodos.map((p) => (
-            <option key={p} value={p}>
-              {nombrePeriodo(p)}
-            </option>
-          ))}
-        </select>
-
-        <button
-          type="button"
-          onClick={() => setPeriodo((p) => correrPeriodo(p, 1))}
-          title="Mes siguiente"
-          className="btn-ghost px-2.5"
-        >
-          +1 mes
-        </button>
-
         <span
           className={`chip ml-auto shrink-0 ${
             estado === 'error'
@@ -276,12 +267,21 @@ export function FacturasClient({
         </span>
       </div>
 
+      <SelectorMes
+        periodo={periodo}
+        conDatos={conDatos}
+        anios={anios}
+        onCambio={setPeriodo}
+      />
+
       <ResumenFacturas facturas={delMes} />
 
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
-          <div className="min-w-[860px]">
-            <div className="grid grid-cols-[minmax(160px,1fr)_130px_120px_130px_120px_130px_36px] gap-2 border-b border-panel-700 bg-panel-850 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+          <div className="md:min-w-[820px]">
+            <div
+              className={`sticky top-16 z-10 hidden gap-2 border-b border-panel-700 bg-panel-850 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500 md:grid ${COLUMNAS}`}
+            >
               <span>Cliente</span>
               <span className="text-right">Importe neto</span>
               <span className="text-right">IVA 21%</span>
@@ -292,39 +292,69 @@ export function FacturasClient({
             </div>
 
             {delMes.length === 0 ? (
-              <p className="px-3 py-6 text-center text-sm text-zinc-500">
-                No hay facturas cargadas en {nombrePeriodo(periodo)}.
+              <p className="px-3 py-8 text-center text-sm text-zinc-500">
+                No hay facturas en {nombreMes(periodo)}. Cargá la primera acá
+                abajo.
               </p>
             ) : (
-              delMes.map((factura) => (
-                <FilaFactura
-                  key={factura.id}
-                  factura={factura}
-                  responsables={responsables}
-                  onCambio={(patch) => actualizarFactura(factura.id, patch)}
-                  onEliminar={() => void eliminarFactura(factura.id)}
-                />
-              ))
+              <div className="divide-y divide-panel-800 md:divide-y-0">
+                {delMes.map((factura, i) => (
+                  <FilaFactura
+                    key={factura.id}
+                    factura={factura}
+                    indice={i}
+                    onCambio={(patch) => actualizarFactura(factura.id, patch)}
+                    onEliminar={() => void eliminarFactura(factura.id)}
+                  />
+                ))}
+              </div>
             )}
 
             {delMes.length > 0 && (
-              <div className="grid grid-cols-[minmax(160px,1fr)_130px_120px_130px_120px_130px_36px] gap-2 border-t-2 border-panel-700 bg-panel-850 px-3 py-2.5 text-sm font-bold tabular-nums">
-                <span className="text-zinc-400">TOTAL</span>
-                <span className="text-right">
-                  {formatPesosConCentavos(totales.neto)}
-                </span>
-                <span className="text-right text-zinc-300">
-                  {formatPesosConCentavos(totales.iva)}
-                </span>
-                <span className="text-right">
-                  {formatPesosConCentavos(totales.total)}
-                </span>
-                <span className="text-right text-emerald-400">
-                  {formatPesosConCentavos(totales.futbol)}
-                </span>
-                <span />
-                <span />
-              </div>
+              <>
+                <div
+                  className={`hidden gap-2 border-t-2 border-panel-700 bg-panel-850 px-3 py-2.5 text-sm font-bold tabular-nums md:grid ${COLUMNAS}`}
+                >
+                  <span className="text-zinc-400">
+                    TOTAL {nombrePeriodo(periodo).toUpperCase()}
+                  </span>
+                  <span className="text-right">
+                    {formatPesosConCentavos(totales.neto)}
+                  </span>
+                  <span className="text-right text-zinc-400">
+                    {formatPesosConCentavos(totales.iva)}
+                  </span>
+                  <span className="text-right">
+                    {formatPesosConCentavos(totales.total)}
+                  </span>
+                  <span className="text-right text-emerald-400">
+                    {formatPesosConCentavos(totales.futbol)}
+                  </span>
+                  <span />
+                  <span />
+                </div>
+
+                <dl className="grid grid-cols-2 gap-x-3 gap-y-1 border-t-2 border-panel-700 bg-panel-850 px-3 py-2.5 text-sm md:hidden">
+                  <dt className="text-xs text-zinc-500">Neto</dt>
+                  <dd className="text-right font-semibold tabular-nums">
+                    {formatPesosConCentavos(totales.neto)}
+                  </dd>
+                  <dt className="text-xs text-zinc-500">IVA</dt>
+                  <dd className="text-right tabular-nums text-zinc-400">
+                    {formatPesosConCentavos(totales.iva)}
+                  </dd>
+                  <dt className="text-xs text-zinc-500">Fútbol</dt>
+                  <dd className="text-right tabular-nums text-emerald-400">
+                    {formatPesosConCentavos(totales.futbol)}
+                  </dd>
+                  <dt className="border-t border-panel-800 pt-1 font-semibold">
+                    Total
+                  </dt>
+                  <dd className="border-t border-panel-800 pt-1 text-right text-base font-bold tabular-nums">
+                    {formatPesosConCentavos(totales.total)}
+                  </dd>
+                </dl>
+              </>
             )}
           </div>
         </div>
@@ -337,7 +367,7 @@ export function FacturasClient({
             aria-label="Cliente nuevo"
             value={nuevoCliente}
             onChange={(e) => setNuevoCliente(e.target.value)}
-            placeholder="Cliente…"
+            placeholder={`Cliente nuevo en ${nombreMes(periodo)}…`}
             className="input-base min-w-0 flex-1 uppercase"
           />
           <input
@@ -346,7 +376,7 @@ export function FacturasClient({
             value={nuevoNeto}
             onChange={(e) => setNuevoNeto(e.target.value)}
             placeholder="Importe neto"
-            className="input-base w-36 text-right tabular-nums"
+            className="input-base w-32 text-right tabular-nums"
           />
           <input
             aria-label="Responsable"
@@ -354,7 +384,7 @@ export function FacturasClient({
             value={nuevoResponsable}
             onChange={(e) => setNuevoResponsable(e.target.value)}
             placeholder="Responsable"
-            className="input-base w-36 uppercase"
+            className="input-base w-32 uppercase"
           />
           <button
             type="submit"
@@ -369,7 +399,7 @@ export function FacturasClient({
       {porResponsable.length > 0 && (
         <div className="card p-3.5">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-            Por responsable
+            Por responsable · {nombreMes(periodo)}
           </p>
           <ul className="mt-2 divide-y divide-panel-800">
             {porResponsable.map((r) => (
@@ -392,6 +422,13 @@ export function FacturasClient({
           </ul>
         </div>
       )}
+
+      <ResumenAnual
+        facturas={facturas}
+        anio={anioDe(periodo)}
+        periodo={periodo}
+        onElegir={setPeriodo}
+      />
     </div>
   );
 }
