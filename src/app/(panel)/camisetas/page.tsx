@@ -6,37 +6,60 @@ import type { Grupo, GrupoConPersonas, Persona } from '@/lib/types';
 export const dynamic = 'force-dynamic';
 
 /**
- * El proyecto firma los tokens con claves asimétricas y valida el `iat` sin
- * tolerancia: un token recién emitido queda un segundo "en el futuro" para
- * quien lo valida y la primera consulta después del login rebota. Se reintenta
- * una vez, para entonces el reloj ya pasó el `iat`.
+ * Supabase firma los tokens con claves asimetricas y PostgREST valida el `iat`
+ * sin tolerancia. Cuando el reloj del nodo que valida va unos segundos atras
+ * del que firma, la primera consulta despues del login rebota con un 401
+ * PGRST303 ("JWT issued in future"). Es transitorio: alcanza con reintentar
+ * hasta que el reloj pasa el `iat`.
+ *
+ * Se reintenta cada consulta por separado, porque el rebote pega en una sola
+ * de las dos (cada una cae en un nodo distinto).
  */
-const ERRORES_TRANSITORIOS = ['issued at future', 'JWT', 'jwt'];
+const CODIGOS_TRANSITORIOS = ['PGRST301', 'PGRST303'];
+const ESPERAS_MS = [700, 1400, 2100];
 
-async function traerDatos() {
-  const supabase = createClient();
-  return Promise.all([
-    supabase.from('adeo_grupos').select('*').order('orden'),
-    supabase
-      .from('adeo_personas')
-      .select('*')
-      .order('created_at', { ascending: true }),
-  ]);
+type ErrorConsulta = { code?: string; message?: string } | null;
+type Respuesta<T> = { data: T[] | null; error: ErrorConsulta };
+
+function esTransitorio(error: ErrorConsulta) {
+  if (!error) return false;
+  if (error.code && CODIGOS_TRANSITORIOS.includes(error.code)) return true;
+  return /jwt/i.test(error.message ?? '');
+}
+
+const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function conReintentos<T>(
+  consulta: () => PromiseLike<Respuesta<T>>
+): Promise<Respuesta<T>> {
+  let respuesta = await consulta();
+
+  for (const espera of ESPERAS_MS) {
+    if (!esTransitorio(respuesta.error)) break;
+    await dormir(espera);
+    respuesta = await consulta();
+  }
+
+  return respuesta;
 }
 
 export default async function CamisetasPage() {
-  let [{ data: grupos, error: errorGrupos }, { data: personas, error: errorPersonas }] =
-    await traerDatos();
+  const supabase = createClient();
 
-  const mensaje = errorGrupos?.message ?? errorPersonas?.message;
-  const esTransitorio =
-    !!mensaje && ERRORES_TRANSITORIOS.some((t) => mensaje.includes(t));
-
-  if (esTransitorio) {
-    await new Promise((r) => setTimeout(r, 1500));
-    [{ data: grupos, error: errorGrupos }, { data: personas, error: errorPersonas }] =
-      await traerDatos();
-  }
+  const [
+    { data: grupos, error: errorGrupos },
+    { data: personas, error: errorPersonas },
+  ] = await Promise.all([
+    conReintentos<Grupo>(() =>
+      supabase.from('adeo_grupos').select('*').order('orden')
+    ),
+    conReintentos<Persona>(() =>
+      supabase
+        .from('adeo_personas')
+        .select('*')
+        .order('created_at', { ascending: true })
+    ),
+  ]);
 
   if (errorGrupos || errorPersonas) {
     return (
@@ -54,9 +77,9 @@ export default async function CamisetasPage() {
     );
   }
 
-  const datos: GrupoConPersonas[] = ((grupos ?? []) as Grupo[]).map((g) => ({
+  const datos: GrupoConPersonas[] = (grupos ?? []).map((g) => ({
     ...g,
-    personas: ((personas ?? []) as Persona[])
+    personas: (personas ?? [])
       .filter((p) => p.grupo_id === g.id)
       .map((p) => ({ ...p, monto_sena: Number(p.monto_sena) })),
   }));

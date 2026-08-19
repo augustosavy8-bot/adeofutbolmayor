@@ -1,13 +1,11 @@
 'use client';
 
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { usuarioAEmail } from '@/lib/auth';
 
 export default function LoginPage() {
-  const router = useRouter();
   const [usuario, setUsuario] = useState('');
   const [password, setPassword] = useState('');
   const [verPassword, setVerPassword] = useState(false);
@@ -36,9 +34,15 @@ export default function LoginPage() {
     }
 
     // Si el middleware nos mandó acá desde otra ruta, volvemos a esa.
-    const destino = new URLSearchParams(window.location.search).get('next');
-    router.replace(destino && destino.startsWith('/') ? destino : '/camisetas');
-    router.refresh();
+    const next = new URLSearchParams(window.location.search).get('next');
+    const destino = next && next.startsWith('/') ? next : '/camisetas';
+
+    // Navegación completa a propósito: con router.replace() + router.refresh()
+    // salían dos renders del panel y el segundo abortaba al primero justo
+    // mientras reintentaba la consulta, así que el reintento nunca llegaba a
+    // salir. Una sola carga también evita que el router sirva una versión
+    // cacheada de antes del login.
+    window.location.assign(destino);
   }
 
   return (
