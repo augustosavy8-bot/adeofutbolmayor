@@ -10,6 +10,7 @@ import { anioDe, nombreMes, nombrePeriodo, periodoDe } from '@/lib/periodos';
 import { ResumenFacturas } from './ResumenFacturas';
 import { ResumenAnual } from './ResumenAnual';
 import { SelectorMes } from './SelectorMes';
+import { CargarFactura } from './CargarFactura';
 import { COLUMNAS, FilaFactura } from './FilaFactura';
 
 const DEBOUNCE_MS = 600;
@@ -32,9 +33,6 @@ export function FacturasClient({
   const [periodo, setPeriodo] = useState(
     () => inicial[0]?.periodo ?? periodoDe(new Date())
   );
-  const [nuevoCliente, setNuevoCliente] = useState('');
-  const [nuevoNeto, setNuevoNeto] = useState('');
-  const [nuevoResponsable, setNuevoResponsable] = useState('');
 
   const pendientes = useRef(new Map<string, Partial<Factura>>());
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
@@ -111,19 +109,15 @@ export function FacturasClient({
   );
 
   const agregarFactura = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      const cliente = nuevoCliente.trim().toUpperCase();
-      if (!cliente) return;
-
+    async (cliente: string, neto: string, responsable: string) => {
       setEstado('guardando');
       const { data, error } = await supabase
         .from('adeo_facturas')
         .insert({
           periodo,
           cliente,
-          neto: parseMonto(nuevoNeto),
-          responsable: nuevoResponsable.trim().toUpperCase() || null,
+          neto: parseMonto(neto),
+          responsable: responsable.trim().toUpperCase() || null,
         })
         .select()
         .single();
@@ -131,18 +125,17 @@ export function FacturasClient({
       if (error || !data) {
         console.error('No se pudo agregar', error);
         setEstado('error');
-        return;
+        return false;
       }
 
       const factura = data as Factura;
       setFacturas((prev) =>
         prev.some((f) => f.id === factura.id) ? prev : [...prev, factura]
       );
-      setNuevoCliente('');
-      setNuevoNeto('');
       setEstado('listo');
+      return true;
     },
-    [nuevoCliente, nuevoNeto, nuevoResponsable, periodo, supabase]
+    [periodo, supabase]
   );
 
   // ------------------------------------------------------------- realtime
@@ -274,6 +267,8 @@ export function FacturasClient({
         onCambio={setPeriodo}
       />
 
+      <CargarFactura periodo={periodo} onAgregar={agregarFactura} />
+
       <ResumenFacturas facturas={delMes} />
 
       <div className="card overflow-hidden">
@@ -293,8 +288,8 @@ export function FacturasClient({
 
             {delMes.length === 0 ? (
               <p className="px-3 py-8 text-center text-sm text-zinc-500">
-                No hay facturas en {nombreMes(periodo)}. Cargá la primera acá
-                abajo.
+                No hay facturas en {nombreMes(periodo)}. Cargá la primera con
+                el formulario de arriba.
               </p>
             ) : (
               <div className="divide-y divide-panel-800 md:divide-y-0">
@@ -358,42 +353,6 @@ export function FacturasClient({
             )}
           </div>
         </div>
-
-        <form
-          onSubmit={agregarFactura}
-          className="flex flex-wrap gap-2 border-t border-panel-700 p-3"
-        >
-          <input
-            aria-label="Cliente nuevo"
-            value={nuevoCliente}
-            onChange={(e) => setNuevoCliente(e.target.value)}
-            placeholder={`Cliente nuevo en ${nombreMes(periodo)}…`}
-            className="input-base min-w-0 flex-1 uppercase"
-          />
-          <input
-            aria-label="Importe neto"
-            inputMode="decimal"
-            value={nuevoNeto}
-            onChange={(e) => setNuevoNeto(e.target.value)}
-            placeholder="Importe neto"
-            className="input-base w-32 text-right tabular-nums"
-          />
-          <input
-            aria-label="Responsable"
-            list="adeo-responsables"
-            value={nuevoResponsable}
-            onChange={(e) => setNuevoResponsable(e.target.value)}
-            placeholder="Responsable"
-            className="input-base w-32 uppercase"
-          />
-          <button
-            type="submit"
-            disabled={!nuevoCliente.trim()}
-            className="btn-primary"
-          >
-            Agregar
-          </button>
-        </form>
       </div>
 
       {porResponsable.length > 0 && (
