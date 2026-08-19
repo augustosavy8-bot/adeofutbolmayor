@@ -16,7 +16,8 @@ type Props = {
   jugador: Jugador;
   onCambio: (patch: Partial<Jugador>) => void;
   onEliminar: () => void;
-  onSubirFoto: (file: File) => Promise<void>;
+  /** Devuelve si pudo subir; la card no lo usa, lo mira la carga en lote. */
+  onSubirFoto: (file: File) => Promise<unknown>;
 };
 
 /** "Julio Borini" -> "JB" */

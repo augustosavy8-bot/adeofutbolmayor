@@ -14,6 +14,7 @@ import { BUCKET_JUGADORES } from '@/lib/supabase/storage';
 import { achicarImagen } from '@/lib/imagen';
 import { ResumenPlantel } from './ResumenPlantel';
 import { JugadorCard } from './JugadorCard';
+import { CargaFotos } from './CargaFotos';
 
 const DEBOUNCE_MS = 600;
 
@@ -165,7 +166,7 @@ export function PlantelClient({
       if (errorSubida) {
         console.error('No se pudo subir la foto', errorSubida);
         setEstado('error');
-        return;
+        return false;
       }
 
       const { error } = await supabase
@@ -177,7 +178,7 @@ export function PlantelClient({
         console.error('No se pudo asociar la foto', error);
         setEstado('error');
         void supabase.storage.from(BUCKET_JUGADORES).remove([path]);
-        return;
+        return false;
       }
 
       setJugadores((prev) =>
@@ -186,6 +187,8 @@ export function PlantelClient({
       if (anterior) {
         void supabase.storage.from(BUCKET_JUGADORES).remove([anterior]);
       }
+
+      return true;
     },
     [supabase]
   );
@@ -293,6 +296,8 @@ export function PlantelClient({
           </button>
         ))}
       </div>
+
+      <CargaFotos jugadores={jugadores} onSubir={subirFoto} />
 
       {visibles.length === 0 ? (
         <p className="card p-6 text-center text-sm text-zinc-500">
