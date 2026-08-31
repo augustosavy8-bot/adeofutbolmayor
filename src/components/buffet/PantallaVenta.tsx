@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import {
   AJUSTE_TICKET,
@@ -120,9 +121,18 @@ function Venta() {
         )}
 
         {productos.length === 0 ? (
-          <p className="p-8 text-center text-sm text-zinc-500">
-            No hay productos cargados. Agregalos en Config.
-          </p>
+          // Tablet recién estrenada: sin productos no hay nada para tocar, así
+          // que la pantalla tiene que decir qué hacer y llevarte hasta ahí.
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+            <p className="text-lg font-semibold">Todavía no hay productos</p>
+            <p className="max-w-sm text-sm text-zinc-500">
+              Cargá lo que vende el buffet — nombre, precio y categoría — y van
+              a aparecer acá como botones para cobrar.
+            </p>
+            <Link href="/buffet/config" className="btn-primary mt-1 h-[60px] px-6 text-lg">
+              Cargar productos
+            </Link>
+          </div>
         ) : (
           <div className="grid flex-1 auto-rows-min grid-cols-2 gap-2 overflow-y-auto p-2 sm:grid-cols-3 xl:grid-cols-4">
             {visibles.map((p) => (
