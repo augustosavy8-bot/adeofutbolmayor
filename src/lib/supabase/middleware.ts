@@ -2,7 +2,10 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from './config';
 
-const PUBLIC_PATHS = ['/login', '/auth'];
+// /buffet ademas queda fuera del matcher (ver src/middleware.ts): el punto de
+// venta no usa Supabase Auth y tiene que abrir sin red. Va igual en esta lista
+// para que siga siendo publico si algun dia el matcher cambia.
+const PUBLIC_PATHS = ['/login', '/auth', '/buffet'];
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });

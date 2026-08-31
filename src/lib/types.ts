@@ -92,6 +92,50 @@ export type JugadorInsert = {
   created_at?: string;
 };
 
+// --------------------------------------------------------------- buffet
+// La tablet del buffet trabaja offline contra IndexedDB (ver src/db/buffet.ts)
+// y sincroniza contra estas tablas. Acá van con los nombres de Postgres, en
+// snake_case; la traducción vive en lib/buffet-sync.
+
+export type BuffetItemVenta = {
+  productoId: string;
+  nombre: string;
+  precio: number;
+  cantidad: number;
+};
+
+export type BuffetProductoRow = {
+  id: string;
+  nombre: string;
+  precio: number;
+  categoria: string;
+  activo: boolean;
+  orden: number;
+  updated_at: string;
+};
+
+export type BuffetTurnoRow = {
+  id: string;
+  cajero_id: string;
+  cajero_nombre: string | null;
+  abierto_en: string;
+  cerrado_en: string | null;
+  fondo_inicial: number;
+  cerrado: boolean;
+  created_at?: string;
+};
+
+export type BuffetVentaRow = {
+  id: string;
+  turno_id: string;
+  items: BuffetItemVenta[];
+  total: number;
+  medio_pago: 'efectivo' | 'transferencia' | 'qr';
+  creado_en: string;
+  anulada: boolean;
+  created_at?: string;
+};
+
 /** Tipado mínimo del esquema, con la forma que espera supabase-js. */
 export type Database = {
   public: {
@@ -118,6 +162,24 @@ export type Database = {
         Row: Factura;
         Insert: FacturaInsert;
         Update: Partial<FacturaInsert>;
+        Relationships: [];
+      };
+      buffet_productos: {
+        Row: BuffetProductoRow;
+        Insert: BuffetProductoRow;
+        Update: Partial<BuffetProductoRow>;
+        Relationships: [];
+      };
+      buffet_turnos: {
+        Row: BuffetTurnoRow;
+        Insert: BuffetTurnoRow;
+        Update: Partial<BuffetTurnoRow>;
+        Relationships: [];
+      };
+      buffet_ventas: {
+        Row: BuffetVentaRow;
+        Insert: BuffetVentaRow;
+        Update: Partial<BuffetVentaRow>;
         Relationships: [];
       };
     };
