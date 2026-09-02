@@ -7,12 +7,15 @@ import {
   guardarProducto,
   productosDelPuesto,
   uuid,
+  ventasDelTurno,
+  type Venta,
   type Cajero,
   type Producto,
 } from '@/db/buffet';
 import { useSesion } from '@/lib/buffet/estado';
 import { useLive } from '@/lib/buffet/useLive';
-import { pesos } from '@/lib/buffet/ticket';
+import { resumirTurno } from '@/lib/buffet/cierre';
+import { pesos, ticketCierre, ticketEntrada, ticketVenta } from '@/lib/buffet/ticket';
 import { getPrinter } from '@/lib/printer';
 import { sincronizar } from '@/lib/buffet-sync';
 import { Shell } from './Shell';
@@ -26,7 +29,7 @@ export function PantallaConfig() {
 }
 
 function Config() {
-  const { puesto } = useSesion();
+  const { puesto, cajero, turno } = useSesion();
   const { valor: productos } = useLive<Producto[]>(
     () => productosDelPuesto(puesto),
     [],
@@ -38,6 +41,7 @@ function Config() {
   );
 
   const [aviso, setAviso] = useState<string | null>(null);
+  const [previa, setPrevia] = useState<string[] | null>(null);
 
   const [nombre, setNombre] = useState('');
   const [precio, setPrecio] = useState('');
@@ -65,6 +69,47 @@ function Config() {
     });
     setNombre('');
     setPrecio('');
+  }
+
+  /**
+   * Muestra el ticket tal cual saldría por el papel, a 48 columnas. Sirve para
+   * revisar el formato sin impresora — por ejemplo desde una computadora,
+   * donde el sistema no deja que el navegador tome la impresora.
+   */
+  function previaVenta() {
+    const tipo = productos.find((p) => p.activo) ?? productos[0];
+    const ejemplo: Venta = {
+      id: 'previa-de-ejemplo',
+      turnoId: turno?.id ?? '',
+      items: tipo
+        ? [
+            {
+              productoId: tipo.id,
+              nombre: tipo.nombre,
+              precio: tipo.precio,
+              cantidad: puesto === 'entrada' ? 1 : 2,
+            },
+          ]
+        : [],
+      total: tipo ? tipo.precio * (puesto === 'entrada' ? 1 : 2) : 0,
+      medioPago: 'efectivo',
+      creadoEn: new Date().toISOString(),
+      anulada: false,
+      synced: false,
+    };
+    const nombre = cajero?.nombre ?? '';
+    setPrevia(
+      puesto === 'entrada'
+        ? ticketEntrada(ejemplo, nombre)
+        : ticketVenta(ejemplo, nombre)
+    );
+  }
+
+  /** El cierre de verdad del turno abierto, no un ejemplo. */
+  async function previaCierre() {
+    if (!turno) return;
+    const ventas = await ventasDelTurno(turno.id);
+    setPrevia(ticketCierre(resumirTurno(turno, ventas, cajero)));
   }
 
   async function conectarImpresora() {
@@ -150,7 +195,37 @@ function Config() {
           <button type="button" onClick={() => void exportar()} className="btn-ghost h-14">
             Exportar turnos (JSON)
           </button>
+          <button type="button" onClick={previaVenta} className="btn-ghost h-14">
+            Ver ticket de venta
+          </button>
+          <button
+            type="button"
+            onClick={() => void previaCierre()}
+            className="btn-ghost h-14"
+          >
+            Ver cierre de este turno
+          </button>
         </div>
+
+        {previa && (
+          <div className="rounded-lg bg-panel-950 p-3">
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                Así sale por el papel (48 columnas)
+              </p>
+              <button
+                type="button"
+                onClick={() => setPrevia(null)}
+                className="h-9 rounded-lg px-3 text-xs text-zinc-400"
+              >
+                Cerrar
+              </button>
+            </div>
+            <pre className="mt-2 overflow-x-auto whitespace-pre font-mono text-[11px] leading-tight text-zinc-300">
+              {previa.join('\n')}
+            </pre>
+          </div>
+        )}
       </div>
 
       {/* ------------------------------------------------------- productos */}
