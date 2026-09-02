@@ -7,8 +7,30 @@ import {
   type Printer,
 } from './tipos';
 
-/** Clase USB 7 = impresoras. Sirve para casi cualquier ESC/POS por USB. */
+/** Clase USB 7 = impresoras. */
 const CLASE_IMPRESORA = 7;
+
+/**
+ * "Access denied" al abrir casi siempre significa que el sistema operativo ya
+ * tiene la impresora: en Linux y Android el modulo `usblp` engancha las
+ * interfaces clase 7, y en Windows/macOS la agarra el subsistema de impresion.
+ * Chrome no puede reclamar algo que ya esta reclamado.
+ */
+function explicar(e: unknown) {
+  const crudo = e instanceof Error ? e.message : String(e);
+
+  if (/access denied|acceso denegado/i.test(crudo)) {
+    return new ImpresoraNoDisponible(
+      'El sistema ya tiene tomada la impresora, así que el navegador no puede ' +
+        'usarla. Quitala de las impresoras instaladas del dispositivo (o probá ' +
+        'desde la tablet, donde no está instalada) y volvé a conectar.'
+    );
+  }
+  if (/no device selected|cancel/i.test(crudo)) {
+    return new ImpresoraNoDisponible('No se eligió ninguna impresora.');
+  }
+  return new ImpresoraNoDisponible(crudo);
+}
 
 type Salida = { device: USBDevice; interfaz: number; endpoint: number };
 
@@ -16,24 +38,39 @@ function hayWebUSB() {
   return typeof navigator !== 'undefined' && 'usb' in navigator;
 }
 
+type Candidata = { interfaz: number; endpoint: number; clase: number };
+
 /**
- * Busca la interfaz de impresora y su endpoint de salida. Un mismo aparato
- * puede exponer varias configuraciones; se toma la primera que sirva.
+ * Todas las interfaces con un endpoint bulk de salida, no solo las clase 7.
+ *
+ * Importa porque varias ESC/POS exponen ademas una interfaz vendor-specific
+ * (clase 0xFF): cuando el driver del sistema se queda con la clase 7, la otra
+ * suele seguir libre y sirve igual. Se prueban en orden, primero la de
+ * impresora.
  */
-function ubicarSalida(device: USBDevice): { interfaz: number; endpoint: number } {
+function candidatasDeSalida(device: USBDevice): Candidata[] {
+  const encontradas: Candidata[] = [];
+
   for (const config of device.configurations) {
     for (const iface of config.interfaces) {
       for (const alt of iface.alternates) {
-        if (alt.interfaceClass !== CLASE_IMPRESORA) continue;
-        const salida = alt.endpoints.find((e) => e.direction === 'out');
+        const salida = alt.endpoints.find(
+          (e) => e.direction === 'out' && e.type === 'bulk'
+        );
         if (salida) {
-          return { interfaz: iface.interfaceNumber, endpoint: salida.endpointNumber };
+          encontradas.push({
+            interfaz: iface.interfaceNumber,
+            endpoint: salida.endpointNumber,
+            clase: alt.interfaceClass,
+          });
         }
       }
     }
   }
-  throw new ImpresoraNoDisponible(
-    'El dispositivo no expone una interfaz de impresora USB.'
+
+  return encontradas.sort(
+    (a, b) =>
+      Number(b.clase === CLASE_IMPRESORA) - Number(a.clase === CLASE_IMPRESORA)
   );
 }
 
@@ -47,12 +84,33 @@ export class ImpresoraWebUSB implements Printer {
   }
 
   private async preparar(device: USBDevice): Promise<Salida> {
-    if (!device.opened) await device.open();
-    if (!device.configuration) await device.selectConfiguration(1);
+    try {
+      if (!device.opened) await device.open();
+      if (!device.configuration) await device.selectConfiguration(1);
+    } catch (e) {
+      throw explicar(e);
+    }
 
-    const { interfaz, endpoint } = ubicarSalida(device);
-    await device.claimInterface(interfaz);
-    return { device, interfaz, endpoint };
+    const candidatas = candidatasDeSalida(device);
+    if (candidatas.length === 0) {
+      throw new ImpresoraNoDisponible(
+        'El dispositivo no expone ninguna salida de datos: no parece una impresora.'
+      );
+    }
+
+    // Se prueba una por una: que el sistema tenga tomada la primera no quiere
+    // decir que las demas esten ocupadas.
+    let ultimo: unknown = null;
+    for (const c of candidatas) {
+      try {
+        await device.claimInterface(c.interfaz);
+        return { device, interfaz: c.interfaz, endpoint: c.endpoint };
+      } catch (e) {
+        ultimo = e;
+      }
+    }
+
+    throw explicar(ultimo);
   }
 
   async connect() {
@@ -62,9 +120,17 @@ export class ImpresoraWebUSB implements Printer {
       );
     }
 
-    const device = await navigator.usb.requestDevice({
-      filters: [{ classCode: CLASE_IMPRESORA }],
-    });
+    // Sin filtro: filtrando por clase 7 quedaban afuera las impresoras que se
+    // presentan como vendor-specific y no aparecian en la lista de Chrome. Se
+    // muestran todos los dispositivos y la elige el que configura, que es algo
+    // que se hace una sola vez por tablet.
+    let device: USBDevice;
+    try {
+      device = await navigator.usb.requestDevice({ filters: [] });
+    } catch (e) {
+      throw explicar(e);
+    }
+
     this.salida = await this.preparar(device);
     await this.enviar(CMD.init());
   }
@@ -78,13 +144,7 @@ export class ImpresoraWebUSB implements Printer {
 
     try {
       const conocidos = await navigator.usb.getDevices();
-      const device = conocidos.find((d) =>
-        d.configurations.some((c) =>
-          c.interfaces.some((i) =>
-            i.alternates.some((a) => a.interfaceClass === CLASE_IMPRESORA)
-          )
-        )
-      );
+      const device = conocidos.find((d) => candidatasDeSalida(d).length > 0);
       if (!device) return false;
 
       this.salida = await this.preparar(device);
