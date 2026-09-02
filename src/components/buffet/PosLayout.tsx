@@ -4,11 +4,11 @@ import { useEffect } from 'react';
 import type { Puesto } from '@/db/buffet';
 import { BuffetProvider } from '@/lib/buffet/estado';
 import { arrancarSyncAutomatico } from '@/lib/buffet-sync';
-import { getPrinter } from '@/lib/printer';
+import { reconectar } from '@/lib/printer';
 
 /**
  * Envoltorio común de los dos puntos de venta (buffet y entrada). Todo lo que
- * habla con IndexedDB, WebUSB o la red vive de acá para abajo, en el cliente.
+ * habla con IndexedDB, la impresora o la red vive de acá para abajo, en el cliente.
  */
 export function PosLayout({
   puesto,
@@ -18,9 +18,9 @@ export function PosLayout({
   children: React.ReactNode;
 }) {
   useEffect(() => {
-    // El permiso USB dado la primera vez queda guardado: se reconecta sin
+    // El permiso dado la primera vez queda guardado: se reconecta sin
     // preguntar nada al abrir la app.
-    void getPrinter().reconnect();
+    void reconectar();
     return arrancarSyncAutomatico();
   }, []);
 

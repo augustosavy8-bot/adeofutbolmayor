@@ -38,7 +38,33 @@ function lineaItem(item: ItemVenta) {
   return enLinea(detalle, pesos(item.precio * item.cantidad));
 }
 
-/** Ticket de una venta. Opcional: se imprime según el toggle de configuración. */
+/**
+ * Ticket de prueba. La regla numerada sirve para ver de un vistazo si el papel
+ * y la fuente dan las 48 columnas: si se corta o se parte en dos renglones, el
+ * ancho está mal configurado.
+ */
+export function ticketPrueba(): string[] {
+  const regla = Array.from({ length: ANCHO_TICKET }, (_, i) =>
+    String((i + 1) % 10)
+  ).join('');
+
+  return [
+    centrar(CLUB),
+    centrar('PRUEBA DE IMPRESION'),
+    separador(),
+    fechaHora(new Date().toISOString()),
+    '',
+    regla,
+    separador('='),
+    enLinea('Izquierda', 'Derecha'),
+    centrar('Centrado'),
+    separador(),
+    centrar('Si se lee esto, esta lista.'),
+    '',
+  ];
+}
+
+/** Ticket de una venta. Sale solo apenas se cobra. */
 export function ticketVenta(venta: Venta, cajero: string): string[] {
   return [
     centrar(CLUB),

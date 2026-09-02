@@ -29,16 +29,26 @@ function Conexion() {
     };
   }, []);
 
+  const texto = online ? 'En línea' : 'Sin conexión';
+
   return (
     <span
       title={online ? 'Con conexión' : 'Sin conexión (la venta funciona igual)'}
-      className={`chip text-[11px] ${
+      className={`chip shrink-0 text-[11px] ${
         online
           ? 'bg-emerald-500/10 text-emerald-400'
           : 'bg-panel-800 text-zinc-500'
       }`}
     >
-      {online ? 'En línea' : 'Sin conexión'}
+      {/* En el celular no entra el texto al lado de las cuatro pestañas: queda
+          el punto, que alcanza para ver de un vistazo si hay conexión. */}
+      <span
+        aria-hidden
+        className={`inline-block h-2 w-2 rounded-full sm:hidden ${
+          online ? 'bg-emerald-400' : 'bg-zinc-500'
+        }`}
+      />
+      <span className="sr-only sm:not-sr-only">{texto}</span>
     </span>
   );
 }
@@ -68,16 +78,16 @@ export function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-panel-700 bg-panel-900 px-3">
-        <p className="shrink-0 text-sm font-bold">
+        <p className="min-w-0 shrink truncate text-sm font-bold">
           {PUESTOS[puesto].label} <span className="text-adeo-rojo">ADEO</span>
         </p>
 
-        <nav className="flex flex-1 justify-center gap-1">
+        <nav className="flex min-w-0 flex-1 justify-center gap-0.5 sm:gap-1">
           {navDe(base).map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+              className={`whitespace-nowrap rounded-lg px-2 py-2 text-sm font-medium transition sm:px-3 ${
                 pathname === item.href
                   ? 'bg-adeo-rojo text-white'
                   : 'text-zinc-400 active:bg-panel-800'

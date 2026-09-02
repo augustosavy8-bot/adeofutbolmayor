@@ -20,11 +20,20 @@ import {
   pesos,
   ticketCierre,
   ticketEntrada,
+  ticketPrueba,
   ticketReporte,
   ticketVenta,
   type TurnoDelReporte,
 } from '@/lib/buffet/ticket';
-import { getPrinter, imprimirSeguro } from '@/lib/printer';
+import {
+  TRANSPORTES,
+  conectar,
+  getPreferencia,
+  imprimirSeguro,
+  setPreferencia,
+  type PreferenciaImpresora,
+  type Transporte,
+} from '@/lib/printer';
 import { sincronizar } from '@/lib/buffet-sync';
 import { Shell } from './Shell';
 
@@ -50,6 +59,7 @@ function Config() {
 
   const [aviso, setAviso] = useState<string | null>(null);
   const [previa, setPrevia] = useState<string[] | null>(null);
+  const [impresion, setImpresion] = useState<PreferenciaImpresora>('auto');
 
   const [nombre, setNombre] = useState('');
   const [precio, setPrecio] = useState('');
@@ -57,6 +67,8 @@ function Config() {
 
   const [cajeroNombre, setCajeroNombre] = useState('');
   const [cajeroPin, setCajeroPin] = useState('');
+
+  useEffect(() => setImpresion(getPreferencia()), []);
 
   useEffect(() => {
     if (!aviso) return;
@@ -143,13 +155,27 @@ function Config() {
     setPrevia(ticketCierre(resumirTurno(turno, ventas, cajero)));
   }
 
-  async function conectarImpresora() {
+  async function conectarImpresora(t: Transporte) {
     try {
-      await getPrinter().connect();
+      await conectar(t);
+      setPreferencia(t);
+      setImpresion(t);
       setAviso('Impresora conectada.');
     } catch (e) {
       setAviso(e instanceof Error ? e.message : 'No se pudo conectar.');
     }
+  }
+
+  function elegirImpresion(p: PreferenciaImpresora) {
+    setPreferencia(p);
+    setImpresion(p);
+  }
+
+  /** Manda un ticket de prueba por la vía elegida, para no descubrirlo vendiendo. */
+  async function probarImpresion() {
+    setAviso('Imprimiendo prueba…');
+    const r = await imprimirSeguro(ticketPrueba());
+    setAviso(r.ok ? 'Salió el ticket de prueba.' : r.motivo);
   }
 
   async function sincronizarAhora() {
@@ -202,19 +228,74 @@ function Config() {
         </p>
       )}
 
-      <div className="card space-y-2 p-3">
+      <div className="card space-y-3 p-3">
+        <h2 className="text-sm font-semibold text-zinc-200">Impresora</h2>
         <p className="rounded-lg bg-panel-850 px-3 py-2.5 text-sm text-zinc-400">
           El ticket se imprime solo en cada venta. Si la impresora no está
           conectada, la venta se guarda igual y avisa.
         </p>
 
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => elegirImpresion('auto')}
+            aria-pressed={impresion === 'auto'}
+            className={`w-full rounded-lg border p-3 text-left ${
+              impresion === 'auto'
+                ? 'border-emerald-500 bg-emerald-500/10'
+                : 'border-panel-700 bg-panel-850'
+            }`}
+          >
+            <span className="block text-sm font-medium text-zinc-100">
+              Automático
+            </span>
+            <span className="block text-xs text-zinc-400">
+              Prueba USB y después el puerto COM.
+            </span>
+          </button>
+
+          {TRANSPORTES.map((t) => (
+            <div
+              key={t.id}
+              className={`rounded-lg border p-3 ${
+                impresion === t.id
+                  ? 'border-emerald-500 bg-emerald-500/10'
+                  : 'border-panel-700 bg-panel-850'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => elegirImpresion(t.id)}
+                  aria-pressed={impresion === t.id}
+                  className="flex-1 text-left"
+                >
+                  <span className="block text-sm font-medium text-zinc-100">
+                    {t.label}
+                  </span>
+                  <span className="block text-xs text-zinc-400">{t.detalle}</span>
+                </button>
+                {t.id !== 'sistema' && (
+                  <button
+                    type="button"
+                    onClick={() => void conectarImpresora(t.id)}
+                    className="btn-ghost shrink-0 px-3 py-2 text-xs"
+                  >
+                    Conectar
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
         <div className="grid gap-2 sm:grid-cols-3">
           <button
             type="button"
-            onClick={() => void conectarImpresora()}
+            onClick={() => void probarImpresion()}
             className="btn-ghost h-14"
           >
-            Conectar impresora
+            Probar impresión
           </button>
           <button
             type="button"

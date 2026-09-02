@@ -52,29 +52,80 @@ vender.
 
 ---
 
-## 2. Emparejar la impresora (Xprinter XP-80, USB)
+## 2. Conectar la impresora (Xprinter XP-80)
 
-La impresión usa **WebUSB**, que solo anda en Chrome y solo con la app servida
-por HTTPS. Una sola vez por tablet:
+Hay **tres formas** de llegar al papel y se eligen en **Config → Impresora**.
+Ninguna anda en todos lados, por eso están las tres:
 
-1. Conectá la impresora al puerto de la tablet con un **cable OTG**
-   (USB-C a USB-A hembra). La impresora tiene que estar encendida.
-2. Si la tablet pregunta qué hacer con el dispositivo USB, dale permiso.
-   En algunos Android hay que habilitar **OTG** en Ajustes → Conexiones.
-3. En la app: **Config → Conectar impresora**.
-4. Chrome muestra la lista de dispositivos USB. Elegí la impresora y
-   **Conectar**.
+| Forma | Dónde anda | Diálogo por ticket |
+|---|---|---|
+| **USB directo** (WebUSB) | Tablet Android | No |
+| **Puerto COM** (Web Serial) | Windows con el driver instalado, o cable serie | No |
+| **Driver de Windows** | Cualquier PC con la impresora instalada | Sí (se saca, ver abajo) |
 
-Listo. El permiso queda guardado: cada vez que abrís la app se reconecta sola,
-sin volver a preguntar.
+En **Automático** prueba USB y después COM. El driver de Windows hay que
+elegirlo a mano, porque es el único que abre un diálogo.
+
+Después de conectar, usá **Config → Probar impresión**: saca un ticket con una
+regla numerada del 1 al 48. Si la regla entra en un solo renglón, el ancho está
+bien.
 
 **Si la impresora no está**, la venta se cobra y se guarda igual — sale un
 aviso de que no se pudo imprimir, pero nunca se traba el cobro.
 
-### Si no aparece en la lista
-- Probá otro cable OTG; muchos son solo de carga y no pasan datos.
-- Chrome tiene que estar actualizado.
-- La app tiene que estar abierta por HTTPS (la instalada lo está).
+### En la tablet Android — USB directo
+
+1. Conectá la impresora con un **cable OTG** (USB-C a USB-A hembra), encendida.
+2. Si Android pregunta qué hacer con el dispositivo USB, dale permiso.
+   En algunos hay que habilitar **OTG** en Ajustes → Conexiones.
+3. **Config → Impresora → USB directo → Conectar**, elegila de la lista.
+
+El permiso queda guardado: cada vez que abrís la app se reconecta sola.
+
+**Si no aparece en la lista:** probá otro cable OTG (muchos son sólo de carga y
+no pasan datos), actualizá Chrome, y fijate que la app esté abierta por HTTPS.
+
+### En Windows — puerto COM
+
+En Windows, **USB directo casi siempre da "Access denied"**. No es un problema
+de la app ni de los drivers: apenas enchufás la impresora, Windows le asigna un
+driver genérico (`usbprint.sys`) y el navegador no puede usar un aparato que ya
+tomó el sistema. Pasa con el driver de Xprinter instalado y sin él.
+
+El puerto COM esquiva eso: en vez de pelearle el aparato al driver, le habla al
+puerto serie que el propio driver publica.
+
+1. En **Panel de control → Dispositivos e impresoras**, botón derecho sobre la
+   XP-80 → **Propiedades** → pestaña **Puertos**. Anotá el COM que tiene
+   asignado (COM1, COM3, etc.).
+   - Si está en `USB00x` en vez de un COM, instalá el paquete de driver de
+     Xprinter eligiendo la interfaz **Serial**, o usá el driver
+     **Generic / Text Only** sobre el puerto COM.
+   - Con cable serie directo, el COM ya está.
+2. La velocidad tiene que coincidir con la de la impresora: **9600 baudios**,
+   que es la de fábrica. Se ve en el ticket de autotest (apagá la impresora,
+   mantené **FEED** y encendela).
+3. En la app: **Config → Impresora → Puerto COM → Conectar**, elegí el puerto.
+
+### En Windows — driver de Windows (siempre funciona)
+
+Le manda el ticket al driver como documento, igual que cualquier programa de
+escritorio. No hay nada que emparejar: elegilo en **Config → Impresora** y
+listo.
+
+El costo es que Chrome muestra el diálogo de impresión en cada ticket. Para
+sacarlo, abrí Chrome con **`--kiosk-printing`**: imprime directo en la
+impresora predeterminada, sin preguntar.
+
+Creá un acceso directo con este destino (ajustá la ruta y la URL):
+
+```
+"C:\Program Files\Google\Chrome\Application\chrome.exe" --kiosk-printing --app=https://TU-DOMINIO/buffet
+```
+
+Y dejá la XP-80 como **impresora predeterminada** de Windows, con el tamaño de
+papel en **80 mm** y el **corte automático** activado en las propiedades del
+driver (el corte lo hace el driver, no la app).
 
 ---
 
@@ -161,7 +212,7 @@ opcional: sirve para tener los datos en el servidor, no para operar.
 | Estado de sesión y carrito | `src/lib/buffet/estado.tsx` |
 | Cálculo del arqueo | `src/lib/buffet/cierre.ts` |
 | Armado de tickets (texto) | `src/lib/buffet/ticket.ts` |
-| Impresora (interfaz + WebUSB) | `src/lib/printer/` |
+| Impresora (USB, COM y driver) | `src/lib/printer/` |
 | Sincronización | `src/lib/buffet-sync.ts` |
 | Pantallas | `src/components/buffet/` |
 | Rutas | `src/app/buffet/` y `src/app/entrada/` |
@@ -169,7 +220,7 @@ opcional: sirve para tener los datos en el servidor, no para operar.
 | SQL | `supabase/migrations/0007_buffet.sql` y `0008_buffet_puesto.sql` |
 
 Todo `/buffet` y `/entrada` es client-side: las páginas importan la pantalla con
-`ssr: false` porque hablan con IndexedDB y WebUSB, que no existen en el
+`ssr: false` porque hablan con IndexedDB y la impresora, que no existen en el
 servidor. Además los dos quedan fuera del matcher del middleware, así que no
 pasan por la sesión de Supabase ni pagan esa latencia. Los `layout.tsx` sí son
 server components, pero solo para declarar el manifest: no hacen ningún fetch.
