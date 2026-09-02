@@ -154,4 +154,83 @@ export function ticketCierre(resumen: ResumenTurno): string[] {
   return lineas;
 }
 
+/** Un turno ya resumido, para el reporte consolidado. */
+export type TurnoDelReporte = {
+  resumen: ResumenTurno;
+  synced: boolean;
+};
+
+/**
+ * Reporte de varios turnos en papel. Es la alternativa al export JSON para un
+ * club sin conexión: se imprime y se archiva, sin depender de mandar un
+ * archivo a ningún lado.
+ */
+export function ticketReporte(
+  puesto: string,
+  turnos: TurnoDelReporte[]
+): string[] {
+  const lineas: string[] = [
+    centrar(CLUB),
+    centrar('REPORTE DE TURNOS'),
+    separador('='),
+    enLinea('Puesto', puesto),
+    enLinea('Emitido', fechaHora(new Date().toISOString())),
+    enLinea('Turnos', String(turnos.length)),
+    separador('='),
+  ];
+
+  if (turnos.length === 0) {
+    lineas.push('  (no hay turnos cerrados)', '');
+  }
+
+  for (const { resumen, synced } of turnos) {
+    lineas.push(
+      `${fechaHora(resumen.abiertoEn)} - ${
+        resumen.cerradoEn ? hora(resumen.cerradoEn) : 'abierto'
+      }`,
+      enLinea(
+        `  ${resumen.cajero}`,
+        `${resumen.ventasValidas} ${resumen.ventasValidas === 1 ? 'venta' : 'ventas'}`
+      ),
+      enLinea('  Efectivo', pesos(resumen.efectivoVendido)),
+      enLinea('  Total', pesos(resumen.totalGeneral))
+    );
+
+    if (resumen.anuladas.cantidad > 0) {
+      lineas.push(
+        enLinea(
+          `  Anuladas (${resumen.anuladas.cantidad})`,
+          pesos(resumen.anuladas.total)
+        )
+      );
+    }
+    // Marca lo que todavía no llegó al servidor: sin conexión es el único
+    // lugar donde queda registrado que falta subirlo.
+    if (!synced) lineas.push('  * sin sincronizar');
+
+    lineas.push(separador());
+  }
+
+  const total = turnos.reduce((a, t) => a + t.resumen.totalGeneral, 0);
+  const efectivo = turnos.reduce((a, t) => a + t.resumen.efectivoVendido, 0);
+  const ventas = turnos.reduce((a, t) => a + t.resumen.ventasValidas, 0);
+  const pendientes = turnos.filter((t) => !t.synced).length;
+
+  lineas.push(
+    enLinea(`TOTAL (${ventas} ventas)`, pesos(total)),
+    enLinea('Efectivo', pesos(efectivo)),
+    separador('=')
+  );
+
+  if (pendientes > 0) {
+    lineas.push(
+      centrar(`${pendientes} turno(s) sin sincronizar`),
+      centrar('subir cuando haya conexion')
+    );
+  }
+
+  lineas.push('', centrar('Firma: ____________________'), '');
+  return lineas;
+}
+
 export { ANCHO_TICKET };

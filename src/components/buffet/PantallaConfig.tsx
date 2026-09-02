@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import {
+  PUESTOS,
   crearCajero,
   db,
   guardarProducto,
@@ -15,8 +16,15 @@ import {
 import { useSesion } from '@/lib/buffet/estado';
 import { useLive } from '@/lib/buffet/useLive';
 import { resumirTurno } from '@/lib/buffet/cierre';
-import { pesos, ticketCierre, ticketEntrada, ticketVenta } from '@/lib/buffet/ticket';
-import { getPrinter } from '@/lib/printer';
+import {
+  pesos,
+  ticketCierre,
+  ticketEntrada,
+  ticketReporte,
+  ticketVenta,
+  type TurnoDelReporte,
+} from '@/lib/buffet/ticket';
+import { getPrinter, imprimirSeguro } from '@/lib/printer';
 import { sincronizar } from '@/lib/buffet-sync';
 import { Shell } from './Shell';
 
@@ -103,6 +111,29 @@ function Config() {
         ? ticketEntrada(ejemplo, nombre)
         : ticketVenta(ejemplo, nombre)
     );
+  }
+
+  /**
+   * Reporte consolidado de los turnos cerrados del puesto. Es la alternativa
+   * en papel al export JSON: no depende de mandar un archivo a ningún lado.
+   */
+  async function previaReporte() {
+    const todos = await db().turnos.toArray();
+    const delPuesto = todos
+      .filter((t) => t.puesto === puesto && t.cerrado)
+      .sort((a, b) => b.abiertoEn.localeCompare(a.abiertoEn));
+
+    const filas: TurnoDelReporte[] = [];
+    for (const t of delPuesto) {
+      const ventas = await ventasDelTurno(t.id);
+      const suCajero = await db().cajeros.get(t.cajeroId);
+      filas.push({
+        resumen: resumirTurno(t, ventas, suCajero ?? null),
+        synced: t.synced,
+      });
+    }
+
+    setPrevia(ticketReporte(PUESTOS[puesto].label, filas));
   }
 
   /** El cierre de verdad del turno abierto, no un ejemplo. */
@@ -205,6 +236,13 @@ function Config() {
           >
             Ver cierre de este turno
           </button>
+          <button
+            type="button"
+            onClick={() => void previaReporte()}
+            className="btn-ghost h-14"
+          >
+            Reporte de turnos
+          </button>
         </div>
 
         {previa && (
@@ -213,13 +251,26 @@ function Config() {
               <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
                 Así sale por el papel (48 columnas)
               </p>
-              <button
-                type="button"
-                onClick={() => setPrevia(null)}
-                className="h-9 rounded-lg px-3 text-xs text-zinc-400"
-              >
-                Cerrar
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!previa) return;
+                    const r = await imprimirSeguro(previa);
+                    setAviso(r.ok ? 'Impreso.' : r.motivo);
+                  }}
+                  className="h-9 rounded-lg bg-adeo-rojo px-3 text-xs font-semibold text-white"
+                >
+                  Imprimir
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrevia(null)}
+                  className="h-9 rounded-lg px-3 text-xs text-zinc-400"
+                >
+                  Cerrar
+                </button>
+              </div>
             </div>
             <pre className="mt-2 overflow-x-auto whitespace-pre font-mono text-[11px] leading-tight text-zinc-300">
               {previa.join('\n')}

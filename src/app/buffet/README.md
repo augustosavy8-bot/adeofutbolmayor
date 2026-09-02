@@ -135,9 +135,21 @@ sin esa sesión. Solo hace falta para que el sync escriba.
 
 ### Si nunca hay red
 
-**Config → Exportar turnos (JSON)** baja o comparte (mail, WhatsApp) todo lo
-que hay en la tablet: turnos, ventas y productos. Sirve para arquear sin
-depender del servidor.
+El sistema no la necesita. Todo el circuito —abrir turno, vender, anular,
+cerrar e imprimir— corre contra la base de la tablet.
+
+- **Config → Reporte de turnos** imprime en papel el consolidado de los turnos
+  cerrados del puesto: fecha, cajero, ventas, efectivo y total de cada uno, más
+  el total general. Los que todavía no subieron salen marcados con `*`.
+- **Config → Ver ticket de venta / Ver cierre de este turno** muestran en
+  pantalla, a 48 columnas, exactamente lo que saldría por el papel. Sirve para
+  revisar el formato sin impresora, y el panel tiene su propio botón de
+  imprimir.
+- **Config → Exportar turnos (JSON)** baja o comparte (mail, WhatsApp) todo lo
+  que hay en la tablet: turnos, ventas y productos.
+
+Lo único que necesita conexión es la **sincronización con Supabase**, que es
+opcional: sirve para tener los datos en el servidor, no para operar.
 
 ---
 
