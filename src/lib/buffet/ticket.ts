@@ -58,6 +58,32 @@ export function ticketVenta(venta: Venta, cajero: string): string[] {
 }
 
 /**
+ * Ticket de entrada: es lo que la persona muestra para pasar, así que va
+ * grande y con lo mínimo. El de menor de 12 se imprime igual aunque no pague:
+ * sirve para contarlo y para que tenga su comprobante.
+ */
+export function ticketEntrada(venta: Venta, cajero: string): string[] {
+  const item = venta.items[0];
+
+  return [
+    centrar(CLUB),
+    centrar('ENTRADA'),
+    separador('='),
+    '',
+    centrar((item?.nombre ?? '').toUpperCase()),
+    centrar(venta.total > 0 ? pesos(venta.total) : 'SIN CARGO'),
+    '',
+    separador(),
+    enLinea('Fecha', fechaHora(venta.creadoEn)),
+    enLinea('Cajero', cajero),
+    enLinea('Nro', venta.id.slice(0, 8).toUpperCase()),
+    '',
+    centrar('Valido para el ingreso de hoy'),
+    centrar('No reembolsable'),
+  ];
+}
+
+/**
  * Cierre de caja, en texto plano ESC/POS. Todo lo que hace falta para arquear
  * sin abrir la tablet: qué se vendió, cómo se cobró y cuánta plata tiene que
  * haber en la caja.

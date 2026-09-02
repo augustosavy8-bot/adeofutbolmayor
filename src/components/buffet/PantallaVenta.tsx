@@ -28,9 +28,13 @@ export function PantallaVenta() {
 }
 
 function Venta() {
-  const { cajero, turno } = useSesion();
+  const { puesto, cajero, turno } = useSesion();
   const carrito = useCarrito();
-  const { valor: productos } = useLive<Producto[]>(productosActivos, []);
+  const { valor: productos } = useLive<Producto[]>(
+    () => productosActivos(puesto),
+    [],
+    [puesto]
+  );
 
   const [categoria, setCategoria] = useState<string | null>(null);
   const [aviso, setAviso] = useState<Aviso | null>(null);

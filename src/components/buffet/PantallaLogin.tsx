@@ -10,6 +10,7 @@ import {
   verificarPin,
   type Cajero,
 } from '@/db/buffet';
+import { PUESTOS } from '@/db/buffet';
 import { useSesion } from '@/lib/buffet/estado';
 import { useLive } from '@/lib/buffet/useLive';
 import { pesos } from '@/lib/buffet/ticket';
@@ -19,9 +20,10 @@ type Paso = 'cajero' | 'pin' | 'fondo' | 'primer-cajero';
 
 export function PantallaLogin() {
   const router = useRouter();
-  const { entrar, cajero: sesionActiva } = useSesion();
+  const { puesto, entrar, cajero: sesionActiva } = useSesion();
   const { valor: cajeros, cargando } = useLive(cajerosActivos, []);
 
+  const base = PUESTOS[puesto].base;
   const [paso, setPaso] = useState<Paso>('cajero');
   const [elegido, setElegido] = useState<Cajero | null>(null);
   const [pin, setPin] = useState('');
@@ -31,8 +33,8 @@ export function PantallaLogin() {
 
   // Si ya hay turno abierto para este cajero, no tiene sentido volver a pedir.
   useEffect(() => {
-    if (sesionActiva) router.replace('/buffet');
-  }, [sesionActiva, router]);
+    if (sesionActiva) router.replace(base);
+  }, [sesionActiva, router, base]);
 
   // Primera vez en la tablet: sin cajeros no se puede entrar a ningún lado.
   useEffect(() => {
@@ -47,11 +49,11 @@ export function PantallaLogin() {
       return;
     }
 
-    const abierto = await turnoAbierto();
+    const abierto = await turnoAbierto(puesto);
     if (abierto) {
       // El turno sigue abierto (por ejemplo, se recargó la tablet).
       entrar(elegido, abierto);
-      router.replace('/buffet');
+      router.replace(base);
       return;
     }
     setError(null);
@@ -60,9 +62,9 @@ export function PantallaLogin() {
 
   async function confirmarFondo() {
     if (!elegido) return;
-    const turno = await abrirTurno(elegido.id, Number(fondo || 0));
+    const turno = await abrirTurno(elegido.id, Number(fondo || 0), puesto);
     entrar(elegido, turno);
-    router.replace('/buffet');
+    router.replace(base);
   }
 
   async function crearPrimerCajero() {
@@ -79,7 +81,7 @@ export function PantallaLogin() {
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-5 p-4">
       <div className="text-center">
         <h1 className="text-2xl font-bold">
-          Buffet <span className="text-adeo-rojo">ADEO</span>
+          {PUESTOS[puesto].label} <span className="text-adeo-rojo">ADEO</span>
         </h1>
         <p className="mt-1 text-sm text-zinc-400">
           {paso === 'cajero' && 'Elegí tu usuario'}

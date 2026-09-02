@@ -1,8 +1,27 @@
-# Buffet — punto de venta
+# Puntos de venta — Buffet y Entrada
 
-Corre en la tablet Android con Chrome, instalado como PWA. **Funciona sin
-internet**: la base vive en la tablet (IndexedDB) y sube a Supabase recién
-cuando hay red.
+Dos puestos con la misma app: el **buffet** (`/buffet`) y la **boletería**
+(`/entrada`). Cada uno corre en su propia tablet Android con Chrome, instalado
+como PWA, con su propia tickeadora. **Funcionan sin internet**: la base vive en
+la tablet (IndexedDB) y sube a Supabase recién cuando hay red.
+
+Comparten todo el motor — base, impresora, cierre, sincronización — pero cada
+puesto tiene **su lista de productos y su propio turno**, así los arqueos no se
+mezclan. Cada tablet instala el acceso directo de su puesto: son dos manifests
+distintos (`/manifest-buffet.webmanifest` y `/manifest-entrada.webmanifest`).
+
+## Diferencias entre los dos
+
+| | Buffet | Entrada |
+|---|---|---|
+| Cómo se cobra | carrito con varios productos, después el medio de pago | un toque = una entrada, sin carrito |
+| Ticket | opcional (toggle en Config) | **siempre**, es lo que se muestra para pasar |
+| Pantalla | grilla por categoría + carrito | tres botones grandes + contador de ingresados |
+
+La boletería arranca con los precios del clásico ya cargados: **General
+$12.000**, **Deportista $5.000** y **Menor de 12 sin cargo**. El menor no paga
+pero se registra igual, para contarlo como ingresado y darle su ticket. Los
+tres se editan desde Config como cualquier producto.
 
 No usa la sesión del panel. Se entra con un PIN de 4 dígitos por cajero, que se
 guarda hasheado en la tablet.
@@ -11,8 +30,9 @@ guarda hasheado en la tablet.
 
 ## 1. Instalar la PWA en la tablet
 
-1. Con conexión, abrí Chrome y entrá a
-   `https://adeofutbolmayor-augusavy.vercel.app/buffet`.
+1. Con conexión, abrí Chrome y entrá a la URL **del puesto de esa tablet**:
+   - buffet → `https://adeofutbolmayor-augusavy.vercel.app/buffet`
+   - entrada → `https://adeofutbolmayor-augusavy.vercel.app/entrada`
 2. Menú de Chrome (⋮) → **Agregar a pantalla principal** / *Instalar app*.
 3. Abrila desde el ícono nuevo, no desde Chrome: así arranca a pantalla
    completa y sin barra de direcciones.
@@ -132,14 +152,15 @@ depender del servidor.
 | Impresora (interfaz + WebUSB) | `src/lib/printer/` |
 | Sincronización | `src/lib/buffet-sync.ts` |
 | Pantallas | `src/components/buffet/` |
-| Rutas | `src/app/buffet/` |
+| Rutas | `src/app/buffet/` y `src/app/entrada/` |
 | Service worker | `src/app/sw.ts` + `next.config.mjs` |
-| SQL | `supabase/migrations/0007_buffet.sql` |
+| SQL | `supabase/migrations/0007_buffet.sql` y `0008_buffet_puesto.sql` |
 
-Todo `/buffet` es client-side: las páginas importan la pantalla con
+Todo `/buffet` y `/entrada` es client-side: las páginas importan la pantalla con
 `ssr: false` porque hablan con IndexedDB y WebUSB, que no existen en el
-servidor. Además `/buffet` queda fuera del matcher del middleware, así que no
-pasa por la sesión de Supabase ni paga esa latencia.
+servidor. Además los dos quedan fuera del matcher del middleware, así que no
+pasan por la sesión de Supabase ni pagan esa latencia. Los `layout.tsx` sí son
+server components, pero solo para declarar el manifest: no hacen ningún fetch.
 
 El driver de impresión está detrás de la interfaz `Printer`
 (`connect`, `printText`, `printRaster`, `cut`). Para sumar Bluetooth alcanza

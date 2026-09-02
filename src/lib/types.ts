@@ -106,6 +106,8 @@ export type BuffetItemVenta = {
 
 export type BuffetProductoRow = {
   id: string;
+  /** 'buffet' o 'entrada': cada puesto tiene su propia lista. */
+  puesto: string;
   nombre: string;
   precio: number;
   categoria: string;
@@ -116,6 +118,7 @@ export type BuffetProductoRow = {
 
 export type BuffetTurnoRow = {
   id: string;
+  puesto: string;
   cajero_id: string;
   cajero_nombre: string | null;
   abierto_en: string;

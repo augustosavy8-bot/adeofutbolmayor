@@ -8,10 +8,12 @@ import {
   guardarAjuste,
   guardarProducto,
   leerAjuste,
+  productosDelPuesto,
   uuid,
   type Cajero,
   type Producto,
 } from '@/db/buffet';
+import { useSesion } from '@/lib/buffet/estado';
 import { useLive } from '@/lib/buffet/useLive';
 import { pesos } from '@/lib/buffet/ticket';
 import { getPrinter } from '@/lib/printer';
@@ -27,9 +29,11 @@ export function PantallaConfig() {
 }
 
 function Config() {
+  const { puesto } = useSesion();
   const { valor: productos } = useLive<Producto[]>(
-    () => db().productos.orderBy('orden').toArray(),
-    []
+    () => productosDelPuesto(puesto),
+    [],
+    [puesto]
   );
   const { valor: cajeros } = useLive<Cajero[]>(
     () => db().cajeros.orderBy('nombre').toArray(),
@@ -66,6 +70,7 @@ function Config() {
     if (!nombre.trim() || !precio) return;
     await guardarProducto({
       id: uuid(),
+      puesto,
       nombre: nombre.trim(),
       precio: Number(precio.replace(/[^\d]/g, '')),
       categoria: categoria.trim() || 'General',

@@ -15,13 +15,16 @@ import {
   type Cajero,
   type ItemVenta,
   type Producto,
+  type Puesto,
   type Turno,
 } from '@/db/buffet';
 
-const CLAVE_CAJERO = 'adeo-buffet:cajero';
+const claveCajero = (puesto: Puesto) => `adeo-buffet:cajero:${puesto}`;
 
 // ------------------------------------------------------------------ sesión
 type Sesion = {
+  /** Qué punto de venta es esta pantalla: buffet o boletería. */
+  puesto: Puesto;
   cajero: Cajero | null;
   turno: Turno | null;
   /** Mientras se rehidrata desde IndexedDB no se sabe si hay sesión. */
@@ -98,7 +101,13 @@ type Carrito = {
 const CtxSesion = createContext<Sesion | null>(null);
 const CtxCarrito = createContext<Carrito | null>(null);
 
-export function BuffetProvider({ children }: { children: React.ReactNode }) {
+export function BuffetProvider({
+  puesto,
+  children,
+}: {
+  puesto: Puesto;
+  children: React.ReactNode;
+}) {
   const [cajero, setCajero] = useState<Cajero | null>(null);
   const [turno, setTurno] = useState<Turno | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -111,8 +120,8 @@ export function BuffetProvider({ children }: { children: React.ReactNode }) {
 
     (async () => {
       try {
-        const id = localStorage.getItem(CLAVE_CAJERO);
-        const abierto = await turnoAbierto();
+        const id = localStorage.getItem(claveCajero(puesto));
+        const abierto = await turnoAbierto(puesto);
         const guardado = id ? await db().cajeros.get(id) : undefined;
 
         if (!vigente) return;
@@ -130,28 +139,31 @@ export function BuffetProvider({ children }: { children: React.ReactNode }) {
     return () => {
       vigente = false;
     };
-  }, []);
+  }, [puesto]);
 
-  const entrar = useCallback((c: Cajero, t: Turno) => {
-    localStorage.setItem(CLAVE_CAJERO, c.id);
-    setCajero(c);
-    setTurno(t);
-  }, []);
+  const entrar = useCallback(
+    (c: Cajero, t: Turno) => {
+      localStorage.setItem(claveCajero(puesto), c.id);
+      setCajero(c);
+      setTurno(t);
+    },
+    [puesto]
+  );
 
   const salir = useCallback(() => {
-    localStorage.removeItem(CLAVE_CAJERO);
+    localStorage.removeItem(claveCajero(puesto));
     setCajero(null);
     setTurno(null);
     despachar({ tipo: 'limpiar' });
-  }, []);
+  }, [puesto]);
 
   const refrescarTurno = useCallback(async () => {
-    setTurno((await turnoAbierto()) ?? null);
-  }, []);
+    setTurno((await turnoAbierto(puesto)) ?? null);
+  }, [puesto]);
 
   const sesion = useMemo<Sesion>(
-    () => ({ cajero, turno, cargando, entrar, salir, refrescarTurno }),
-    [cajero, turno, cargando, entrar, salir, refrescarTurno]
+    () => ({ puesto, cajero, turno, cargando, entrar, salir, refrescarTurno }),
+    [puesto, cajero, turno, cargando, entrar, salir, refrescarTurno]
   );
 
   const carrito = useMemo<Carrito>(

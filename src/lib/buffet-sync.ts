@@ -1,7 +1,7 @@
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
-import { db, type Producto, type Turno, type Venta } from '@/db/buffet';
+import { db, type Producto, type Puesto, type Turno, type Venta } from '@/db/buffet';
 
 export type ResultadoSync = {
   ok: boolean;
@@ -17,6 +17,7 @@ export type ResultadoSync = {
  */
 type FilaTurno = {
   id: string;
+  puesto: Puesto;
   cajero_id: string;
   cajero_nombre: string | null;
   abierto_en: string;
@@ -37,6 +38,7 @@ type FilaVenta = {
 
 type FilaProducto = {
   id: string;
+  puesto: Puesto;
   nombre: string;
   precio: number;
   categoria: string;
@@ -49,6 +51,7 @@ async function aFilaTurno(turno: Turno): Promise<FilaTurno> {
   const cajero = await db().cajeros.get(turno.cajeroId);
   return {
     id: turno.id,
+    puesto: turno.puesto,
     cajero_id: turno.cajeroId,
     // El cajero es local; sin el nombre, los turnos del servidor no dicen nada.
     cajero_nombre: cajero?.nombre ?? null,
@@ -142,6 +145,7 @@ export async function sincronizar(): Promise<ResultadoSync> {
 
         aGuardar.push({
           id: fila.id,
+          puesto: fila.puesto ?? 'buffet',
           nombre: fila.nombre,
           precio: Number(fila.precio),
           categoria: fila.categoria,

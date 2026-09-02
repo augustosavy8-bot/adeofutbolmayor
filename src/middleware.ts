@@ -8,14 +8,14 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Todo menos assets estáticos, imágenes y el buffet.
+     * Todo menos assets estáticos, imágenes y los puntos de venta.
      *
-     * `buffet` queda afuera a propósito: es un punto de venta offline, no usa
-     * la sesión de Supabase, y hacer un getUser() contra la red en cada
-     * navegación sería latencia al pedo. `sw.js` y `manifest.webmanifest` van
-     * afuera porque son los archivos de la PWA: si el middleware los
-     * redirigiera al login, la app no instalaría ni abriría sin conexión.
+     * `buffet` y `entrada` quedan afuera a propósito: son puntos de venta
+     * offline, no usan la sesión de Supabase, y hacer un getUser() contra la
+     * red en cada navegación sería latencia al pedo. `sw.js` y los manifests
+     * van afuera porque son los archivos de las PWA: si el middleware los
+     * redirigiera al login, no instalarían ni abrirían sin conexión.
      */
-    '/((?!_next/static|_next/image|favicon.ico|adeo-logo.png|buffet|sw.js|manifest.webmanifest|icons/|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|adeo-logo.png|buffet|entrada|sw.js|manifest-buffet.webmanifest|manifest-entrada.webmanifest|icons/|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

@@ -2,6 +2,18 @@ import Dexie, { type Table } from 'dexie';
 
 export type MedioPago = 'efectivo' | 'transferencia' | 'qr';
 
+/**
+ * Los dos puestos de venta del club. Comparten base, impresora y cierre, pero
+ * cada uno tiene sus propios productos y su propio turno, así el arqueo del
+ * buffet no se mezcla con el de la boletería.
+ */
+export type Puesto = 'buffet' | 'entrada';
+
+export const PUESTOS: Record<Puesto, { label: string; base: string }> = {
+  buffet: { label: 'Buffet', base: '/buffet' },
+  entrada: { label: 'Entrada', base: '/entrada' },
+};
+
 export const MEDIOS_PAGO: { valor: MedioPago; label: string }[] = [
   { valor: 'efectivo', label: 'Efectivo' },
   { valor: 'transferencia', label: 'Transferencia' },
@@ -10,6 +22,7 @@ export const MEDIOS_PAGO: { valor: MedioPago; label: string }[] = [
 
 export type Producto = {
   id: string;
+  puesto: Puesto;
   nombre: string;
   precio: number;
   categoria: string;
@@ -29,6 +42,7 @@ export type Cajero = {
 
 export type Turno = {
   id: string;
+  puesto: Puesto;
   cajeroId: string;
   abiertoEn: string;
   cerradoEn?: string;
@@ -83,6 +97,31 @@ export class BuffetDB extends Dexie {
       ventas: 'id, turnoId, creadoEn',
       ajustes: 'clave',
     });
+
+    // v2 suma el puesto. Lo que ya estaba cargado era del buffet, que era el
+    // único que existía.
+    this.version(2)
+      .stores({
+        productos: 'id, puesto, categoria, orden, nombre',
+        cajeros: 'id, nombre',
+        turnos: 'id, puesto, cajeroId, abiertoEn',
+        ventas: 'id, turnoId, creadoEn',
+        ajustes: 'clave',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('productos')
+          .toCollection()
+          .modify((p) => {
+            p.puesto ??= 'buffet';
+          });
+        await tx
+          .table('turnos')
+          .toCollection()
+          .modify((t) => {
+            t.puesto ??= 'buffet';
+          });
+      });
   }
 }
 
@@ -114,13 +153,20 @@ export async function guardarAjuste(clave: string, valor: string) {
 }
 
 // ------------------------------------------------------------------- turnos
-export async function turnoAbierto(): Promise<Turno | undefined> {
-  return (await db().turnos.toArray()).find((t) => !t.cerrado);
+export async function turnoAbierto(puesto: Puesto): Promise<Turno | undefined> {
+  return (await db().turnos.toArray()).find(
+    (t) => !t.cerrado && t.puesto === puesto
+  );
 }
 
-export async function abrirTurno(cajeroId: string, fondoInicial: number) {
+export async function abrirTurno(
+  cajeroId: string,
+  fondoInicial: number,
+  puesto: Puesto
+) {
   const turno: Turno = {
     id: uuid(),
+    puesto,
     cajeroId,
     abiertoEn: new Date().toISOString(),
     fondoInicial,
@@ -198,9 +244,47 @@ export async function cajerosActivos() {
 }
 
 // ---------------------------------------------------------------- productos
-export async function productosActivos() {
+export async function productosActivos(puesto: Puesto) {
   const todos = await db().productos.orderBy('orden').toArray();
-  return todos.filter((p) => p.activo);
+  return todos.filter((p) => p.activo && p.puesto === puesto);
+}
+
+export async function productosDelPuesto(puesto: Puesto) {
+  const todos = await db().productos.orderBy('orden').toArray();
+  return todos.filter((p) => p.puesto === puesto);
+}
+
+/**
+ * Precios de boletería del clásico, tal como los pasó el club. Se siembran la
+ * primera vez que se abre la entrada en una tablet; después se editan desde
+ * Config como cualquier producto.
+ *
+ * "Menor de 12" va en 0: no paga, pero se carga igual para contarlo como
+ * ingresado y darle su ticket.
+ */
+export const ENTRADAS_CLASICO = [
+  { nombre: 'General', precio: 12000 },
+  { nombre: 'Deportista', precio: 5000 },
+  { nombre: 'Menor de 12', precio: 0 },
+];
+
+/** Idempotente: si el puesto ya tiene algo cargado, no toca nada. */
+export async function sembrarEntradas() {
+  if ((await productosDelPuesto('entrada')).length > 0) return;
+
+  const ahora = new Date().toISOString();
+  await db().productos.bulkAdd(
+    ENTRADAS_CLASICO.map((e, i) => ({
+      id: uuid(),
+      puesto: 'entrada' as const,
+      nombre: e.nombre,
+      precio: e.precio,
+      categoria: 'Clásico',
+      activo: true,
+      orden: i + 1,
+      updatedAt: ahora,
+    }))
+  );
 }
 
 export async function guardarProducto(

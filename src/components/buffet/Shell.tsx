@@ -3,13 +3,15 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { PUESTOS } from '@/db/buffet';
 import { useSesion } from '@/lib/buffet/estado';
 
-const NAV = [
-  { href: '/buffet', label: 'Venta' },
-  { href: '/buffet/ventas', label: 'Ventas' },
-  { href: '/buffet/cierre', label: 'Cierre' },
-  { href: '/buffet/config', label: 'Config' },
+/** Las mismas cuatro pantallas para los dos puestos, colgadas de su base. */
+const navDe = (base: string) => [
+  { href: base, label: 'Venta' },
+  { href: `${base}/ventas`, label: 'Ventas' },
+  { href: `${base}/cierre`, label: 'Cierre' },
+  { href: `${base}/config`, label: 'Config' },
 ];
 
 function Conexion() {
@@ -46,13 +48,14 @@ function Conexion() {
  * login: sin turno no se puede cobrar ni arquear.
  */
 export function Shell({ children }: { children: React.ReactNode }) {
-  const { cajero, turno, cargando } = useSesion();
+  const { puesto, cajero, turno, cargando } = useSesion();
   const router = useRouter();
   const pathname = usePathname();
+  const base = PUESTOS[puesto].base;
 
   useEffect(() => {
-    if (!cargando && (!cajero || !turno)) router.replace('/buffet/login');
-  }, [cargando, cajero, turno, router]);
+    if (!cargando && (!cajero || !turno)) router.replace(`${base}/login`);
+  }, [cargando, cajero, turno, router, base]);
 
   if (cargando || !cajero || !turno) {
     return (
@@ -66,11 +69,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-dvh flex-col">
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-panel-700 bg-panel-900 px-3">
         <p className="shrink-0 text-sm font-bold">
-          Buffet <span className="text-adeo-rojo">ADEO</span>
+          {PUESTOS[puesto].label} <span className="text-adeo-rojo">ADEO</span>
         </p>
 
         <nav className="flex flex-1 justify-center gap-1">
-          {NAV.map((item) => (
+          {navDe(base).map((item) => (
             <Link
               key={item.href}
               href={item.href}
