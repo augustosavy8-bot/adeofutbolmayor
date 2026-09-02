@@ -10,32 +10,38 @@ import {
 /** Clase USB 7 = impresoras. */
 const CLASE_IMPRESORA = 7;
 
+type Salida = { device: USBDevice; interfaz: number; endpoint: number };
+
+function hayWebUSB() {
+  return typeof navigator !== 'undefined' && 'usb' in navigator;
+}
+
 /**
- * "Access denied" al abrir casi siempre significa que el sistema operativo ya
- * tiene la impresora: en Linux y Android el modulo `usblp` engancha las
- * interfaces clase 7, y en Windows/macOS la agarra el subsistema de impresion.
- * Chrome no puede reclamar algo que ya esta reclamado.
+ * "Access denied" al abrir no tiene que ver con instalar o no el driver del
+ * fabricante: el sistema operativo le asigna uno *generico* a toda impresora
+ * USB apenas se enchufa (usbprint.sys en Windows, usblp en Linux y Android, el
+ * subsistema de impresion en macOS), y WebUSB no puede reclamar una interfaz
+ * que ya tiene un driver del kernel.
+ *
+ * En Windows la unica salida es cambiar ese driver por WinUSB, lo que deja la
+ * impresora inutilizable para el resto del sistema. En Android normalmente no
+ * pasa, que es donde va a correr esto.
  */
 function explicar(e: unknown) {
   const crudo = e instanceof Error ? e.message : String(e);
 
   if (/access denied|acceso denegado/i.test(crudo)) {
     return new ImpresoraNoDisponible(
-      'El sistema ya tiene tomada la impresora, así que el navegador no puede ' +
-        'usarla. Quitala de las impresoras instaladas del dispositivo (o probá ' +
-        'desde la tablet, donde no está instalada) y volvé a conectar.'
+      'El sistema operativo tomó la impresora con su propio driver apenas la ' +
+        'enchufaste, y el navegador no puede usar una impresora ya tomada. No ' +
+        'depende de instalar ni desinstalar nada: en Windows y Mac pasa ' +
+        'siempre. Probá desde la tablet Android, que es donde no pasa.'
     );
   }
   if (/no device selected|cancel/i.test(crudo)) {
     return new ImpresoraNoDisponible('No se eligió ninguna impresora.');
   }
   return new ImpresoraNoDisponible(crudo);
-}
-
-type Salida = { device: USBDevice; interfaz: number; endpoint: number };
-
-function hayWebUSB() {
-  return typeof navigator !== 'undefined' && 'usb' in navigator;
 }
 
 type Candidata = { interfaz: number; endpoint: number; clase: number };
