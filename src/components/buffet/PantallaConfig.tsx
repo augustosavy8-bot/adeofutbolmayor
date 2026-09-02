@@ -2,12 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import {
-  AJUSTE_TICKET,
   crearCajero,
   db,
-  guardarAjuste,
   guardarProducto,
-  leerAjuste,
   productosDelPuesto,
   uuid,
   type Cajero,
@@ -40,7 +37,6 @@ function Config() {
     []
   );
 
-  const [ticket, setTicket] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
 
   const [nombre, setNombre] = useState('');
@@ -51,20 +47,10 @@ function Config() {
   const [cajeroPin, setCajeroPin] = useState('');
 
   useEffect(() => {
-    void leerAjuste(AJUSTE_TICKET).then((v) => setTicket(v === 'si'));
-  }, []);
-
-  useEffect(() => {
     if (!aviso) return;
     const t = setTimeout(() => setAviso(null), 5000);
     return () => clearTimeout(t);
   }, [aviso]);
-
-  async function alternarTicket() {
-    const nuevo = !ticket;
-    setTicket(nuevo);
-    await guardarAjuste(AJUSTE_TICKET, nuevo ? 'si' : 'no');
-  }
 
   async function agregarProducto() {
     if (!nombre.trim() || !precio) return;
@@ -141,22 +127,10 @@ function Config() {
       )}
 
       <div className="card space-y-2 p-3">
-        <button
-          type="button"
-          onClick={() => void alternarTicket()}
-          className="flex h-14 w-full items-center justify-between rounded-lg bg-panel-850 px-3 text-sm font-medium"
-        >
-          Imprimir ticket en cada venta
-          <span
-            className={`chip ${
-              ticket
-                ? 'bg-emerald-500/15 text-emerald-400'
-                : 'bg-panel-800 text-zinc-500'
-            }`}
-          >
-            {ticket ? 'Sí' : 'No'}
-          </span>
-        </button>
+        <p className="rounded-lg bg-panel-850 px-3 py-2.5 text-sm text-zinc-400">
+          El ticket se imprime solo en cada venta. Si la impresora no está
+          conectada, la venta se guarda igual y avisa.
+        </p>
 
         <div className="grid gap-2 sm:grid-cols-3">
           <button

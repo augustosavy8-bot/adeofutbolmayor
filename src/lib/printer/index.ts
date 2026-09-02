@@ -18,13 +18,32 @@ export function getPrinter(): Printer {
   return impresora;
 }
 
+export type ResultadoImpresion = { ok: true } | { ok: false; motivo: string };
+
+/**
+ * Las impresiones se encolan. En el mostrador se cobra una atrás de la otra y
+ * dos `transferOut` solapados sobre el mismo endpoint USB salen mezclados en
+ * el papel: encolarlas garantiza que cada ticket se imprima entero.
+ */
+let cola: Promise<unknown> = Promise.resolve();
+
 /**
  * Imprime sin poder romper la operación: si la impresora no está, devuelve el
  * motivo y el que llama decide qué avisar. Nunca lanza.
+ *
+ * No hace falta esperarla para seguir vendiendo: el que llama puede soltar la
+ * promesa y mostrar el aviso cuando resuelva.
  */
-export async function imprimirSeguro(
+export function imprimirSeguro(lineas: string[]): Promise<ResultadoImpresion> {
+  const tarea = cola.then(() => imprimirAhora(lineas));
+  // La cola sobrevive a un ticket fallido: el siguiente igual se intenta.
+  cola = tarea.catch(() => undefined);
+  return tarea;
+}
+
+async function imprimirAhora(
   lineas: string[]
-): Promise<{ ok: true } | { ok: false; motivo: string }> {
+): Promise<ResultadoImpresion> {
   try {
     const p = getPrinter();
     if (p.estado !== 'conectada' && !(await p.reconnect())) {

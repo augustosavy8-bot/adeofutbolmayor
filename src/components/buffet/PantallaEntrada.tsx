@@ -3,9 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import {
-  AJUSTE_TICKET,
   MEDIOS_PAGO,
-  leerAjuste,
   productosActivos,
   registrarVenta,
   sembrarEntradas,
@@ -92,15 +90,19 @@ function Entrada() {
         tono: 'ok',
       });
 
-      // El ticket de entrada se imprime siempre: es lo que la persona muestra
-      // para pasar. El toggle de Config solo aplica al buffet.
-      const r = await imprimirSeguro(ticketEntrada(venta, cajero?.nombre ?? ''));
-      if (!r.ok) {
-        setAviso({
-          texto: `${tipo.nombre} registrada — sin ticket: ${r.motivo}`,
-          tono: 'alerta',
-        });
-      }
+      // El ticket sale apenas se guardó, y no se espera: con gente haciendo
+      // fila, el botón tiene que quedar libre para la próxima persona
+      // mientras corre el papel.
+      void imprimirSeguro(ticketEntrada(venta, cajero?.nombre ?? '')).then(
+        (r) => {
+          if (!r.ok) {
+            setAviso({
+              texto: `${tipo.nombre} registrada — sin ticket: ${r.motivo}`,
+              tono: 'alerta',
+            });
+          }
+        }
+      );
     } catch (e) {
       console.error('No se pudo registrar la entrada', e);
       setAviso({ texto: 'No se pudo registrar la entrada', tono: 'alerta' });

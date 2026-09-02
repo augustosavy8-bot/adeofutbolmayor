@@ -142,7 +142,8 @@ export function uuid() {
 }
 
 // ------------------------------------------------------------------ ajustes
-export const AJUSTE_TICKET = 'ticketPorVenta';
+// Almacén genérico de preferencias de la tablet. Hoy no hay ninguna: el
+// ticket por venta dejó de ser opcional.
 
 export async function leerAjuste(clave: string) {
   return (await db().ajustes.get(clave))?.valor ?? null;

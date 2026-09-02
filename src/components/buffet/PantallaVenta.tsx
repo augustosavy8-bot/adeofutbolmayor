@@ -3,9 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  AJUSTE_TICKET,
   MEDIOS_PAGO,
-  leerAjuste,
   productosActivos,
   registrarVenta,
   type MedioPago,
@@ -60,7 +58,6 @@ function Venta() {
     if (!turno || carrito.items.length === 0 || cobrando) return;
 
     // Se bloquea sólo mientras se escribe en IndexedDB, que es instantáneo.
-    // El botón no espera a la impresora.
     setCobrando(true);
     const items = carrito.items;
     const total = carrito.total;
@@ -70,18 +67,17 @@ function Venta() {
       carrito.limpiar();
       setAviso({ texto: `Cobrado ${pesos(total)}`, tono: 'ok' });
 
-      if ((await leerAjuste(AJUSTE_TICKET)) === 'si') {
-        // La impresión va después de guardar y nunca frena el cobro.
-        const r = await imprimirSeguro(
-          ticketVenta(venta, cajero?.nombre ?? '')
-        );
+      // El ticket sale apenas se guardó la venta, y no se espera: la caja
+      // queda libre para el próximo cliente mientras el papel corre. Si
+      // falla, el aviso se corrige cuando la promesa resuelve.
+      void imprimirSeguro(ticketVenta(venta, cajero?.nombre ?? '')).then((r) => {
         if (!r.ok) {
           setAviso({
             texto: `Cobrado ${pesos(total)} — sin ticket: ${r.motivo}`,
             tono: 'alerta',
           });
         }
-      }
+      });
     } catch (e) {
       console.error('No se pudo registrar la venta', e);
       setAviso({ texto: 'No se pudo guardar la venta', tono: 'alerta' });
