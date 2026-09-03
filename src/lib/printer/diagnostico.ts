@@ -1,6 +1,6 @@
 'use client';
 
-import { SERVICIOS } from './bluetooth';
+import { SALIDA_POR_COM, SERVICIOS, motivoSinBluetooth } from './bluetooth';
 import { getPerfil } from './perfiles';
 import { getPreferencia } from './index';
 
@@ -21,9 +21,9 @@ export function diagnosticoBase(): string[] {
     `Impresora elegida: ${perfil.label}`,
     `Conexion elegida: ${getPreferencia()}`,
     '',
-    `Bluetooth (BLE):  ${nav && 'bluetooth' in nav ? 'disponible' : 'NO disponible'}`,
-    `USB (WebUSB):     ${nav && 'usb' in nav ? 'disponible' : 'NO disponible'}`,
-    `Puerto COM:       ${nav && 'serial' in nav ? 'disponible' : 'NO disponible'}`,
+    `Bluetooth (BLE):  ${nav?.bluetooth ? 'disponible' : 'NO disponible'}`,
+    `USB (WebUSB):     ${nav?.usb ? 'disponible' : 'NO disponible'}`,
+    `Puerto COM:       ${nav?.serial ? 'disponible' : 'NO disponible'}`,
     // Sin contexto seguro no existe ninguna de las tres, y es un motivo que se
     // arregla solo con abrir la app por HTTPS.
     `Contexto seguro:  ${typeof isSecureContext === 'undefined' || isSecureContext ? 'si' : 'NO (hace falta HTTPS)'}`,
@@ -39,12 +39,8 @@ export function diagnosticoBase(): string[] {
 export async function diagnosticoBluetooth(): Promise<string[]> {
   const lineas = [...diagnosticoBase(), '', '--- BLUETOOTH ---'];
 
-  if (typeof navigator === 'undefined' || !('bluetooth' in navigator)) {
-    lineas.push(
-      'Este navegador no tiene Web Bluetooth.',
-      'En iPhone y iPad no existe en ningun navegador.',
-      'En Android hace falta Chrome; en la compu, Chrome o Edge.'
-    );
+  if (typeof navigator === 'undefined' || !navigator.bluetooth) {
+    lineas.push(motivoSinBluetooth(), '', SALIDA_POR_COM);
     return lineas;
   }
 
@@ -72,7 +68,9 @@ export async function diagnosticoBluetooth(): Promise<string[]> {
     lineas.push(
       'El aparato NO expone GATT: es Bluetooth clasico (SPP), no BLE.',
       'Ninguna pagina web puede usarlo. Por eso anda en la app del',
-      'fabricante, que es nativa, y no aca. Salida: conectarla por USB.'
+      'fabricante, que es nativa, y no aca.',
+      '',
+      SALIDA_POR_COM
     );
     return lineas;
   }
@@ -99,7 +97,10 @@ export async function diagnosticoBluetooth(): Promise<string[]> {
     lineas.push(
       'Cero servicios conocidos. El navegador solo deja ver los que la app',
       'pide de antemano, asi que lo mas probable es que esta impresora use',
-      'un UUID que no esta en la lista. Con el UUID se agrega y anda.'
+      'un UUID que no esta en la lista. Con el UUID se agrega y anda.',
+      '',
+      'Si tampoco aparece nada por ahi, puede ser de Bluetooth clasico.',
+      SALIDA_POR_COM
     );
     return lineas;
   }
@@ -139,7 +140,7 @@ export async function diagnosticoBluetooth(): Promise<string[]> {
 export async function diagnosticoUsb(): Promise<string[]> {
   const lineas = [...diagnosticoBase(), '', '--- USB ---'];
 
-  if (typeof navigator === 'undefined' || !('usb' in navigator)) {
+  if (typeof navigator === 'undefined' || !navigator.usb) {
     lineas.push('Este navegador no tiene WebUSB. Hace falta Chrome o Edge.');
     return lineas;
   }

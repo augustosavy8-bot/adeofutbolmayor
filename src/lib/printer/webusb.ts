@@ -10,7 +10,7 @@ const CLASE_IMPRESORA = 7;
 type Salida = { device: USBDevice; interfaz: number; endpoint: number };
 
 function hayWebUSB() {
-  return typeof navigator !== 'undefined' && 'usb' in navigator;
+  return typeof navigator !== 'undefined' && !!navigator.usb;
 }
 
 /**

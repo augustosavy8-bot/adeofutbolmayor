@@ -156,12 +156,24 @@ deja para copiar. Lo que dice y qué significa:
 
 | Dice | Qué pasa | Salida |
 |---|---|---|
-| `Bluetooth (BLE): NO disponible` | El navegador no tiene la API | Chrome en Android. En iPhone y iPad no existe en ninguno |
+| `Bluetooth (BLE): NO disponible` | El navegador no tiene la API | El reporte dice cuál es el motivo de ese navegador |
 | `Contexto seguro: NO` | La app está abierta por `http://` | Abrirla por HTTPS |
 | `Adaptador Bluetooth: APAGADO` | El Bluetooth del aparato está apagado | Prenderlo |
 | `es Bluetooth clasico (SPP), no BLE` | La impresora no habla BLE | Conectarla por USB |
 | `Servicios visibles: 0` | Es BLE, pero su UUID no está en la lista | Pasame el reporte: con el UUID se agrega |
 | `ninguno acepta escritura` | Expone servicios pero no hay dónde escribir | Pasame el reporte |
+
+**Web Bluetooth no es sólo de Android.** Chrome y Edge lo tienen en Windows,
+Mac, Linux, Android y ChromeOS. Donde no existe es en **iPhone y iPad** —en
+ningún navegador, ni el Chrome de iPhone—, en Firefox, en Safari y en Samsung
+Internet. Brave lo trae apagado de fábrica. Si la app está abierta sin HTTPS, el
+navegador lo esconde aunque lo soporte. El diagnóstico distingue cada uno de
+esos casos y dice cuál te tocó.
+
+**Impresora Bluetooth en Windows:** aunque el navegador no llegue por BLE, al
+emparejarla desde Configuración de Windows → Bluetooth el sistema le crea un
+**puerto COM de salida**. Con ese COM, elegí **Puerto COM** en la app y
+funciona igual. Es la vuelta para las de Bluetooth clásico.
 
 El caso de los **cero servicios** es el más traicionero, porque la impresora
 anda perfecto: `getPrimaryServices()` sólo devuelve los servicios que la app

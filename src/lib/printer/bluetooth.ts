@@ -32,8 +32,81 @@ export const SERVICIOS = [
 ];
 
 function hayBluetooth() {
-  return typeof navigator !== 'undefined' && 'bluetooth' in navigator;
+  // Que la clave exista no alcanza: una política del equipo puede dejarla en
+  // undefined, y entonces el primer uso revienta con un error incomprensible.
+  return typeof navigator !== 'undefined' && !!navigator.bluetooth;
 }
+
+/**
+ * Por qué este navegador no tiene Web Bluetooth, mirando el user agent.
+ *
+ * Vale la pena distinguirlo: "no soporta Bluetooth" manda a cambiar de aparato
+ * cuando muchas veces alcanza con abrir la app por HTTPS o con destildar una
+ * opción. Y al revés — en iPhone no hay nada que probar, ni con Chrome.
+ */
+export function motivoSinBluetooth(): string {
+  if (typeof navigator === 'undefined') return 'No hay navegador.';
+
+  // Sin contexto seguro la API directamente no existe, y es lo más fácil de
+  // arreglar, así que va primero.
+  if (typeof isSecureContext !== 'undefined' && !isSecureContext) {
+    return (
+      'La app está abierta sin HTTPS y el navegador esconde el Bluetooth. ' +
+      'Abrila por su dirección https:// y vuelve a aparecer.'
+    );
+  }
+
+  const ua = navigator.userAgent;
+
+  if (/iPhone|iPad|iPod/i.test(ua)) {
+    return (
+      'En iPhone y iPad ningún navegador tiene Bluetooth, ni el Chrome de ' +
+      'iPhone: Apple no lo permite. Usá un Android, o conectá la impresora ' +
+      'por USB o por el driver del sistema.'
+    );
+  }
+  if (/FxiOS|Firefox/i.test(ua)) {
+    return 'Firefox no soporta Bluetooth. Usá Chrome o Edge.';
+  }
+  if (/SamsungBrowser/i.test(ua)) {
+    return 'Samsung Internet no soporta Bluetooth. Usá Chrome.';
+  }
+  if (/OPR|Opera/i.test(ua)) {
+    return 'Este Opera no tiene Bluetooth habilitado. Usá Chrome o Edge.';
+  }
+  if (/Safari/i.test(ua) && !/Chrome|Chromium|Edg/i.test(ua)) {
+    return 'Safari no soporta Bluetooth. Usá Chrome o Edge.';
+  }
+  if (/Brave/i.test(ua)) {
+    return (
+      'Brave trae el Bluetooth apagado de fábrica. Se prende en ' +
+      'brave://settings/privacy → "Usar Web Bluetooth".'
+    );
+  }
+  if (/Linux/i.test(ua) && !/Android/i.test(ua)) {
+    return (
+      'En Linux hay que habilitarlo en chrome://flags → ' +
+      '"Experimental Web Platform features".'
+    );
+  }
+
+  return (
+    'Este navegador no expone Bluetooth. Chrome y Edge lo tienen en Android, ' +
+    'Windows, Mac y ChromeOS; puede estar bloqueado por una política del equipo.'
+  );
+}
+
+/**
+ * En Windows una impresora Bluetooth emparejada aparece además como puerto COM
+ * de salida, y por ahí sí se le puede escribir desde el navegador. Es la
+ * vuelta para las de Bluetooth clásico, que por BLE no son alcanzables.
+ */
+export const SALIDA_POR_COM =
+  'Si estás en Windows: emparejá la impresora desde Configuración de Windows → ' +
+  'Bluetooth. Al emparejarla, Windows le crea un puerto COM de salida ' +
+  '(Panel de control → Dispositivos e impresoras → botón derecho sobre la ' +
+  'impresora → Propiedades → Servicios/Hardware). Con ese COM, elegí ' +
+  '"Puerto COM" acá en Configuración y anda igual.';
 
 /**
  * ESC/POS por Web Bluetooth, para la GOOJPRT portátil.
@@ -93,7 +166,7 @@ export class ImpresoraBluetooth extends ImpresoraEscPos {
   async connect() {
     if (!hayBluetooth()) {
       throw new ImpresoraNoDisponible(
-        'Este navegador no soporta Bluetooth. Usá Chrome en Android.'
+        `${motivoSinBluetooth()} (Usá "Diagnóstico Bluetooth" para ver el detalle.)`
       );
     }
 

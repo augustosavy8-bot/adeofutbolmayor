@@ -12,7 +12,7 @@ import { ImpresoraNoDisponible, type EstadoImpresora } from './tipos';
 const BAUDIOS = 9600;
 
 function haySerial() {
-  return typeof navigator !== 'undefined' && 'serial' in navigator;
+  return typeof navigator !== 'undefined' && !!navigator.serial;
 }
 
 /**
