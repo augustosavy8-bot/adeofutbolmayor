@@ -52,40 +52,59 @@ vender.
 
 ---
 
-## 2. Conectar la impresora (Xprinter XP-80)
+## 2. Impresoras
 
-Hay **tres formas** de llegar al papel y se eligen en **Config → Impresora**.
-Ninguna anda en todos lados, por eso están las tres:
+El sistema maneja **dos impresoras**, y se elige cuál hay en
+**Config → Impresora**:
 
-| Forma | Dónde anda | Diálogo por ticket |
+| | XP-80 (mostrador) | GOOJPRT (portátil) |
 |---|---|---|
-| **USB directo** (WebUSB) | Tablet Android | No |
-| **Puerto COM** (Web Serial) | Windows con el driver instalado, o cable serie | No |
-| **Driver de Windows** | Cualquier PC con la impresora instalada | Sí (se saca, ver abajo) |
+| Papel | 80 mm | 58 mm |
+| Columnas del ticket | 48 | 32 |
+| Corte | guillotina | a mano (avanza 5 líneas) |
+| Se conecta por | USB, COM, red, driver | Bluetooth, USB, driver |
 
-En **Automático** prueba USB y después COM. El driver de Windows hay que
-elegirlo a mano, porque es el único que abre un diálogo.
+Elegir una **reformatea todos los tickets solos**: la venta, la entrada, el
+cierre y el reporte se rearman al ancho que corresponda. En 32 columnas los
+nombres largos se recortan (`2 x Choripan con chimich   $ 7.000`), que es lo
+que entra en 58 mm.
+
+Al cambiar de impresora la conexión vuelve a **Automático**, porque la que
+servía para una no tiene por qué servir para la otra.
 
 Después de conectar, usá **Config → Probar impresión**: saca un ticket con una
-regla numerada del 1 al 48. Si la regla entra en un solo renglón, el ancho está
-bien.
+regla numerada. Si la regla entra en un solo renglón y termina donde termina
+el papel, el ancho está bien.
 
 **Si la impresora no está**, la venta se cobra y se guarda igual — sale un
 aviso de que no se pudo imprimir, pero nunca se traba el cobro.
 
-### En la tablet Android — USB directo
+### Formas de conectarse
+
+| Forma | Dónde anda | Diálogo por ticket |
+|---|---|---|
+| **USB directo** (WebUSB) | Tablet Android | No |
+| **Puerto COM** (Web Serial) | Windows con el driver instalado | No |
+| **Bluetooth** (Web Bluetooth) | La portátil, en Chrome Android | No |
+| **Red** (puerto 9100) | XP-80 con cable de red | No |
+| **Driver del sistema** | Cualquier PC con la impresora instalada | Sí (se saca) |
+
+En **Automático** se prueban las del perfil salvo el driver del sistema, que
+hay que elegir a mano porque es el único que abre un diálogo.
+
+### USB directo (tablet Android)
 
 1. Conectá la impresora con un **cable OTG** (USB-C a USB-A hembra), encendida.
 2. Si Android pregunta qué hacer con el dispositivo USB, dale permiso.
    En algunos hay que habilitar **OTG** en Ajustes → Conexiones.
-3. **Config → Impresora → USB directo → Conectar**, elegila de la lista.
+3. **Config → USB directo → Conectar**, elegila de la lista.
 
 El permiso queda guardado: cada vez que abrís la app se reconecta sola.
 
-**Si no aparece en la lista:** probá otro cable OTG (muchos son sólo de carga y
-no pasan datos), actualizá Chrome, y fijate que la app esté abierta por HTTPS.
+**Si no aparece:** probá otro cable OTG (muchos son sólo de carga y no pasan
+datos), actualizá Chrome, y fijate que la app esté abierta por HTTPS.
 
-### En Windows — puerto COM
+### Puerto COM (Windows)
 
 En Windows, **USB directo casi siempre da "Access denied"**. No es un problema
 de la app ni de los drivers: apenas enchufás la impresora, Windows le asigna un
@@ -95,37 +114,71 @@ tomó el sistema. Pasa con el driver de Xprinter instalado y sin él.
 El puerto COM esquiva eso: en vez de pelearle el aparato al driver, le habla al
 puerto serie que el propio driver publica.
 
-1. En **Panel de control → Dispositivos e impresoras**, botón derecho sobre la
-   XP-80 → **Propiedades** → pestaña **Puertos**. Anotá el COM que tiene
-   asignado (COM1, COM3, etc.).
+1. **Panel de control → Dispositivos e impresoras**, botón derecho sobre la
+   XP-80 → **Propiedades** → pestaña **Puertos**. Anotá el COM asignado.
    - Si está en `USB00x` en vez de un COM, instalá el paquete de driver de
      Xprinter eligiendo la interfaz **Serial**, o usá el driver
-     **Generic / Text Only** sobre el puerto COM.
-   - Con cable serie directo, el COM ya está.
+     **Generic / Text Only** sobre un puerto COM.
 2. La velocidad tiene que coincidir con la de la impresora: **9600 baudios**,
-   que es la de fábrica. Se ve en el ticket de autotest (apagá la impresora,
-   mantené **FEED** y encendela).
-3. En la app: **Config → Impresora → Puerto COM → Conectar**, elegí el puerto.
+   que es la de fábrica. Se ve en el autotest (apagá la impresora, mantené
+   **FEED** y encendela).
+3. **Config → Puerto COM → Conectar**, elegí el puerto.
 
-### En Windows — driver de Windows (siempre funciona)
+### Bluetooth (la portátil de 58 mm)
+
+1. Prendé la impresora y el Bluetooth del teléfono o la tablet.
+2. **Config → GOOJPRT portátil → Bluetooth → Conectar** y elegila de la lista.
+   Se anuncian con nombres muy distintos según el lote (`PT-210`, `MTP-2`,
+   `BlueTooth Printer`), por eso la lista no está filtrada.
+
+Sólo funciona con impresoras **Bluetooth LE**. Las de Bluetooth clásico (SPP)
+no se pueden usar desde ningún navegador: para esas hay que ir por USB. La
+GOOJPRT de 58 mm es BLE.
+
+Si el ticket sale cortado o con basura, bajá `bleChunk` de 180 a 100 en
+`src/lib/printer/perfiles.ts`: el buffer de estas impresoras es chico y hay
+lotes que aguantan menos.
+
+### Red, puerto 9100 (XP-80 con cable de red)
+
+El navegador no abre sockets TCP, así que el ticket pasa por un **puente**: el
+endpoint `POST /api/print`, que abre la conexión del lado del servidor.
+
+**Ojo con dónde corre ese servidor.** Si la app está publicada en Vercel, el
+servidor está en internet y **no llega a la red del club**: la impresora en
+`192.168.0.100` es inalcanzable desde ahí. Hay dos formas de que funcione:
+
+- Correr el POS en una máquina de la red del club (`npm run build && npm start`)
+  y usar el puente por defecto, `/api/print`.
+- Dejar la app en Vercel y levantar el puente en una máquina de esa red,
+  poniendo su dirección en **Config → Red → Puente de impresión**. Tiene que
+  ser `localhost` o HTTPS: el navegador bloquea los pedidos a `http://` desde
+  una página `https://`, salvo a la propia máquina.
+
+La dirección y el puerto de la impresora se configuran en `PERFILES.xp80`
+(`host` y `puerto`) en `src/lib/printer/perfiles.ts`.
+
+Por seguridad el puente **sólo acepta direcciones de red local** (10.x, 127.x,
+172.16–31.x, 192.168.x) y los puertos 9100 a 9103. Sin eso sería un proxy TCP
+abierto: cualquiera que llegue a la app podría hacerle abrir conexiones a donde
+quiera.
+
+### Driver del sistema (siempre funciona)
 
 Le manda el ticket al driver como documento, igual que cualquier programa de
-escritorio. No hay nada que emparejar: elegilo en **Config → Impresora** y
-listo.
+escritorio. No hay nada que emparejar: elegilo en **Config** y listo.
 
 El costo es que Chrome muestra el diálogo de impresión en cada ticket. Para
 sacarlo, abrí Chrome con **`--kiosk-printing`**: imprime directo en la
 impresora predeterminada, sin preguntar.
 
-Creá un acceso directo con este destino (ajustá la ruta y la URL):
-
 ```
 "C:\Program Files\Google\Chrome\Application\chrome.exe" --kiosk-printing --app=https://TU-DOMINIO/buffet
 ```
 
-Y dejá la XP-80 como **impresora predeterminada** de Windows, con el tamaño de
-papel en **80 mm** y el **corte automático** activado en las propiedades del
-driver (el corte lo hace el driver, no la app).
+Dejá la impresora como **predeterminada** de Windows, con el tamaño de papel
+correcto (80 o 58 mm según cuál sea) y el **corte automático** activado en las
+propiedades del driver: por esta vía el corte lo hace el driver, no la app.
 
 ---
 
@@ -212,7 +265,7 @@ opcional: sirve para tener los datos en el servidor, no para operar.
 | Estado de sesión y carrito | `src/lib/buffet/estado.tsx` |
 | Cálculo del arqueo | `src/lib/buffet/cierre.ts` |
 | Armado de tickets (texto) | `src/lib/buffet/ticket.ts` |
-| Impresora (USB, COM y driver) | `src/lib/printer/` |
+| Impresoras (perfiles y transportes) | `src/lib/printer/` |
 | Sincronización | `src/lib/buffet-sync.ts` |
 | Pantallas | `src/components/buffet/` |
 | Rutas | `src/app/buffet/` y `src/app/entrada/` |
@@ -225,6 +278,12 @@ servidor. Además los dos quedan fuera del matcher del middleware, así que no
 pasan por la sesión de Supabase ni pagan esa latencia. Los `layout.tsx` sí son
 server components, pero solo para declarar el manifest: no hacen ningún fetch.
 
-El driver de impresión está detrás de la interfaz `Printer`
-(`connect`, `printText`, `printRaster`, `cut`). Para sumar Bluetooth alcanza
-con otra clase que la cumpla, sin tocar las pantallas.
+Los cinco transportes están detrás de la interfaz `Printer` (`connect`,
+`reconnect`, `imprimir`). Los cuatro que hablan ESC/POS por un caño de bytes
+—USB, COM, Bluetooth y red— comparten `ImpresoraEscPos`, que arma el ticket una
+sola vez; el driver del sistema implementa `Printer` aparte porque manda un
+documento, no bytes. Para sumar un transporte alcanza con otra clase que cumpla
+la interfaz, sin tocar las pantallas.
+
+Sumar una impresora es agregar una entrada en `PERFILES`: el ancho de los
+tickets, el avance, el corte y qué conexiones se ofrecen salen todos de ahí.

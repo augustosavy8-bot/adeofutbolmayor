@@ -1,6 +1,6 @@
 'use client';
 
-import { ANCHO_TICKET } from './escpos';
+import type { PerfilImpresora } from './perfiles';
 import {
   ImpresoraNoDisponible,
   type EstadoImpresora,
@@ -8,18 +8,20 @@ import {
 } from './tipos';
 
 /**
- * Ancho del papel y ancho útil de una XP-80. Los 72 mm son el área que el
- * cabezal realmente imprime; el ticket se arma para que las 48 columnas de
- * texto entren justo ahí, igual que por ESC/POS.
+ * Margen que no imprime el cabezal, sumando los dos costados: en 80 mm el área
+ * útil son 72 y en 58 mm son 48, así que en ambos casos se pierden 8 mm.
  */
-const PAPEL_MM = 80;
-const UTIL_MM = 72;
+const MARGEN_MM = 8;
 
 /**
  * En una fuente monoespaciada el avance de cada carácter es ~0.6 em, así que
- * para meter 48 columnas en 72 mm el cuerpo tiene que ser 72 / 48 / 0.6.
+ * para meter las columnas del perfil en el ancho útil el cuerpo tiene que ser
+ * útil / columnas / 0.6.
  */
-const CUERPO_MM = UTIL_MM / ANCHO_TICKET / 0.6;
+function medidas(perfil: PerfilImpresora) {
+  const util = perfil.papelMm - MARGEN_MM;
+  return { util, cuerpo: util / perfil.columnas / 0.6 };
+}
 
 /**
  * Impresión por el driver del sistema.
@@ -34,7 +36,7 @@ const CUERPO_MM = UTIL_MM / ANCHO_TICKET / 0.6;
  * el README), que es lo que se hace en el mostrador.
  */
 export class ImpresoraSistema implements Printer {
-  readonly nombre = 'Impresora instalada en Windows';
+  readonly nombre = 'Driver del sistema';
 
   get estado(): EstadoImpresora {
     return typeof document === 'undefined' ? 'sin-soporte' : 'conectada';
@@ -47,28 +49,27 @@ export class ImpresoraSistema implements Printer {
     return this.estado === 'conectada';
   }
 
-  async printText(lines: string[]) {
-    const texto = lines
+  async imprimir(lineas: string[], perfil: PerfilImpresora) {
+    const texto = lineas
       .join('\n')
       .replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!);
-    await this.imprimirDocumento(`<pre>${texto}</pre>`);
+    // El avance y el corte los hace el driver al terminar cada documento.
+    await this.imprimirDocumento(`<pre>${texto}</pre>`, perfil);
   }
 
-  async printRaster(canvas: HTMLCanvasElement) {
+  async imprimirImagen(canvas: HTMLCanvasElement, perfil: PerfilImpresora) {
     await this.imprimirDocumento(
-      `<img src="${canvas.toDataURL('image/png')}" alt="">`
+      `<img src="${canvas.toDataURL('image/png')}" alt="">`,
+      perfil
     );
   }
-
-  /** El corte lo hace el driver al terminar cada documento. */
-  async cut() {}
 
   /**
    * El ticket se imprime desde un iframe oculto para no tocar la pantalla de
    * venta: si se imprimiera la ventana, el cajero vería desaparecer la caja
    * mientras sale el papel.
    */
-  private imprimirDocumento(cuerpo: string) {
+  private imprimirDocumento(cuerpo: string, perfil: PerfilImpresora) {
     return new Promise<void>((resolver, rechazar) => {
       if (typeof document === 'undefined') {
         rechazar(new ImpresoraNoDisponible('No hay ventana para imprimir.'));
@@ -97,16 +98,18 @@ export class ImpresoraSistema implements Printer {
         return;
       }
 
+      const { util, cuerpo: tamano } = medidas(perfil);
+
       doc.open();
       doc.write(
         `<!doctype html><html><head><meta charset="utf-8"><style>
-          @page { size: ${PAPEL_MM}mm auto; margin: 0 }
+          @page { size: ${perfil.papelMm}mm auto; margin: 0 }
           html, body { margin: 0; padding: 0 }
-          body { width: ${UTIL_MM}mm; margin: 0 auto }
+          body { width: ${util}mm; margin: 0 auto }
           pre, img { margin: 0 }
           pre {
             font-family: "Consolas", "Courier New", monospace;
-            font-size: ${CUERPO_MM.toFixed(3)}mm;
+            font-size: ${tamano.toFixed(3)}mm;
             line-height: 1.25;
             white-space: pre-wrap;
             word-break: break-all;

@@ -1,63 +1,67 @@
 'use client';
 
-import { ImpresoraWebUSB } from './webusb';
-import { ImpresoraWebSerial } from './serial';
+import { ImpresoraBluetooth } from './bluetooth';
+import { ImpresoraRed } from './red';
 import { ImpresoraSistema } from './sistema';
-import { ImpresoraNoDisponible, type Printer } from './tipos';
+import { ImpresoraWebSerial } from './serial';
+import { ImpresoraWebUSB } from './webusb';
+import { getPerfil, type PerfilImpresora } from './perfiles';
+import { ImpresoraNoDisponible, type Printer, type Transporte } from './tipos';
 
 export { ImpresoraNoDisponible };
-export type { Printer, EstadoImpresora } from './tipos';
+export type { Printer, EstadoImpresora, Transporte } from './tipos';
 export { ANCHO_TICKET, enLinea, separador, centrar } from './escpos';
+export {
+  PERFILES,
+  columnasActivas,
+  getPerfil,
+  listarPerfiles,
+  setPerfil,
+  type PerfilId,
+  type PerfilImpresora,
+} from './perfiles';
+export { getPuente, setPuente } from './red';
 
-/**
- * Las tres formas de llegar al papel. Hacen falta las tres porque ninguna
- * anda en todos lados:
- *
- * - `usb` (WebUSB) es la más directa, pero en Windows y Mac el sistema toma la
- *   impresora con su propio driver y el navegador no puede reclamarla. Es la
- *   que sirve en la tablet Android.
- * - `serie` (Web Serial) habla con un puerto COM. Como el puerto lo publica el
- *   driver, convive con él en vez de pelearlo: anda en Windows con la
- *   impresora instalada.
- * - `sistema` le manda el ticket al driver como documento, que es lo que hace
- *   cualquier programa de escritorio. Anda siempre, a cambio del diálogo de
- *   impresión (ver --kiosk-printing en el README).
- */
-export type Transporte = 'usb' | 'serie' | 'sistema';
-export type PreferenciaImpresora = 'auto' | Transporte;
-
-export const TRANSPORTES: {
-  id: Transporte;
-  label: string;
-  detalle: string;
-}[] = [
-  {
-    id: 'usb',
+export const TRANSPORTES: Record<
+  Transporte,
+  { label: string; detalle: string; necesitaConectar: boolean }
+> = {
+  usb: {
     label: 'USB directo',
     detalle: 'Tablet Android. En Windows suele dar "Access denied".',
+    necesitaConectar: true,
   },
-  {
-    id: 'serie',
+  serie: {
     label: 'Puerto COM',
     detalle: 'Windows con la impresora instalada o cable serie.',
+    necesitaConectar: true,
   },
-  {
-    id: 'sistema',
-    label: 'Driver de Windows',
+  bluetooth: {
+    label: 'Bluetooth',
+    detalle: 'La portátil de 58 mm. Sólo modelos BLE.',
+    necesitaConectar: true,
+  },
+  red: {
+    label: 'Red (puerto 9100)',
+    detalle: 'La XP-80 con cable de red, por el puente local.',
+    necesitaConectar: true,
+  },
+  sistema: {
+    label: 'Driver del sistema',
     detalle: 'Anda siempre. Muestra el diálogo de impresión.',
+    necesitaConectar: false,
   },
-];
+};
+
+export type PreferenciaImpresora = 'auto' | Transporte;
 
 const CLAVE = 'adeo.impresora.transporte';
-
-/** En automático se prueba primero lo que imprime sin diálogo. */
-const ORDEN: Transporte[] = ['usb', 'serie'];
 
 export function getPreferencia(): PreferenciaImpresora {
   if (typeof localStorage === 'undefined') return 'auto';
   const guardado = localStorage.getItem(CLAVE);
-  return guardado === 'usb' || guardado === 'serie' || guardado === 'sistema'
-    ? guardado
+  return guardado && guardado in TRANSPORTES
+    ? (guardado as Transporte)
     : 'auto';
 }
 
@@ -82,7 +86,11 @@ export function impresoraDe(t: Transporte): Printer {
         ? new ImpresoraWebUSB()
         : t === 'serie'
           ? new ImpresoraWebSerial()
-          : new ImpresoraSistema();
+          : t === 'bluetooth'
+            ? new ImpresoraBluetooth()
+            : t === 'red'
+              ? new ImpresoraRed()
+              : new ImpresoraSistema();
     instancias.set(t, p);
   }
   return p;
@@ -91,12 +99,19 @@ export function impresoraDe(t: Transporte): Printer {
 /** Última que respondió, para no reintentar el orden completo en cada venta. */
 let elegida: Printer | null = null;
 
-async function resolver(): Promise<Printer | null> {
+/**
+ * En automático se prueban los transportes del perfil, salvo el driver del
+ * sistema: como nunca falla, ganaría siempre y abriría un diálogo que el
+ * cajero no pidió. Ese hay que elegirlo a mano.
+ */
+async function resolver(perfil: PerfilImpresora): Promise<Printer | null> {
   if (elegida && elegida.estado === 'conectada') return elegida;
 
   const preferencia = getPreferencia();
-  const candidatos: Transporte[] =
-    preferencia === 'auto' ? ORDEN : [preferencia];
+  const candidatos =
+    preferencia === 'auto'
+      ? perfil.transportes.filter((t) => t !== 'sistema')
+      : [preferencia];
 
   for (const t of candidatos) {
     const p = impresoraDe(t);
@@ -113,10 +128,10 @@ async function resolver(): Promise<Printer | null> {
 
 /**
  * Reconecta sin preguntar nada al abrir la app: el permiso que se dio la
- * primera vez queda guardado, tanto en WebUSB como en Web Serial.
+ * primera vez queda guardado en WebUSB, Web Serial y Bluetooth.
  */
 export async function reconectar() {
-  return (await resolver()) !== null;
+  return (await resolver(getPerfil())) !== null;
 }
 
 /** Abre el diálogo de permiso del transporte elegido y lo deja listo. */
@@ -151,8 +166,9 @@ export function imprimirSeguro(lineas: string[]): Promise<ResultadoImpresion> {
 }
 
 async function imprimirAhora(lineas: string[]): Promise<ResultadoImpresion> {
+  const perfil = getPerfil();
   try {
-    const p = await resolver();
+    const p = await resolver(perfil);
     if (!p) {
       return {
         ok: false,
@@ -160,8 +176,7 @@ async function imprimirAhora(lineas: string[]): Promise<ResultadoImpresion> {
           'La impresora no está conectada. Elegí cómo conectarla en Configuración.',
       };
     }
-    await p.printText(lineas);
-    await p.cut();
+    await p.imprimir(lineas, perfil);
     return { ok: true };
   } catch (e) {
     // Si falló en pleno uso, la próxima vuelve a buscar en vez de insistir con

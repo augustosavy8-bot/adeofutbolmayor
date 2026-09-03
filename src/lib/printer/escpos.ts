@@ -1,4 +1,8 @@
-/** Columnas de una XP-80 (papel de 80 mm) con la fuente A. */
+/**
+ * Columnas por defecto: las de una XP-80 (80 mm) en fuente A. La portátil de
+ * 58 mm tiene 32, así que el ancho real sale del perfil activo y esto es sólo
+ * el valor de arranque.
+ */
 export const ANCHO_TICKET = 48;
 
 const ESC = 0x1b;
@@ -70,11 +74,18 @@ export function centrar(texto: string, ancho = ANCHO_TICKET) {
   return ' '.repeat(izq) + t;
 }
 
+/** Sube si sale muy oscuro, baja si sale lavado. */
+export const UMBRAL_TINTA = 160;
+
 /**
  * GS v 0 — imagen en modo raster. Cada bit es un punto; el ancho se redondea
  * al byte, y un bit en 1 es tinta, por eso se invierte el brillo.
+ *
+ * El brillo va con los pesos de luma en vez del promedio de los tres canales:
+ * el ojo ve el verde mucho más que el azul, y con el promedio un texto azul
+ * salía casi blanco.
  */
-export function rasterDesdeCanvas(canvas: HTMLCanvasElement, umbral = 128) {
+export function rasterDesdeCanvas(canvas: HTMLCanvasElement, umbral = UMBRAL_TINTA) {
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('El canvas no tiene contexto 2d');
 
@@ -86,10 +97,12 @@ export function rasterDesdeCanvas(canvas: HTMLCanvasElement, umbral = 128) {
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const i = (y * width + x) * 4;
-      const alfa = datos[i + 3];
-      const gris = (datos[i] + datos[i + 1] + datos[i + 2]) / 3;
-      const tinta = alfa > 128 && gris < umbral;
-      if (tinta) bits[y * bytesPorFila + (x >> 3)] |= 0x80 >> (x & 7);
+      // Lo transparente es papel, no tinta.
+      const luma =
+        datos[i + 3] === 0
+          ? 255
+          : 0.299 * datos[i] + 0.587 * datos[i + 1] + 0.114 * datos[i + 2];
+      if (luma < umbral) bits[y * bytesPorFila + (x >> 3)] |= 0x80 >> (x & 7);
     }
   }
 

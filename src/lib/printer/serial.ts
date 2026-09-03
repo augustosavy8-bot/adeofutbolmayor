@@ -1,11 +1,8 @@
 'use client';
 
-import { CMD, codificar, rasterDesdeCanvas, unir } from './escpos';
-import {
-  ImpresoraNoDisponible,
-  type EstadoImpresora,
-  type Printer,
-} from './tipos';
+import { ImpresoraEscPos } from './base';
+import { CMD } from './escpos';
+import { ImpresoraNoDisponible, type EstadoImpresora } from './tipos';
 
 /**
  * Baudios de fábrica de las XP-80 con puerto serie. Si alguna vez hay que
@@ -26,7 +23,7 @@ function haySerial() {
  * driver de Xprinter (o un cable serie, o el conversor USB-serie). Por eso
  * anda con la impresora instalada y sin tocar nada.
  */
-export class ImpresoraWebSerial implements Printer {
+export class ImpresoraWebSerial extends ImpresoraEscPos {
   readonly nombre = 'Puerto COM (ESC/POS)';
   private puerto: SerialPort | null = null;
 
@@ -92,7 +89,7 @@ export class ImpresoraWebSerial implements Printer {
     }
   }
 
-  private async enviar(datos: Uint8Array) {
+  protected async enviar(datos: Uint8Array) {
     const escribible = this.puerto?.writable;
     if (!escribible) {
       throw new ImpresoraNoDisponible('La impresora no está conectada.');
@@ -106,17 +103,5 @@ export class ImpresoraWebSerial implements Printer {
     } finally {
       escritor.releaseLock();
     }
-  }
-
-  async printText(lines: string[]) {
-    await this.enviar(unir(CMD.init(), codificar(lines.join('\n') + '\n')));
-  }
-
-  async printRaster(canvas: HTMLCanvasElement) {
-    await this.enviar(unir(CMD.init(), rasterDesdeCanvas(canvas), codificar('\n')));
-  }
-
-  async cut() {
-    await this.enviar(unir(CMD.avanzar(4), CMD.cortar()));
   }
 }

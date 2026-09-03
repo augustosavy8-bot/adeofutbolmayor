@@ -1,6 +1,7 @@
 import type { ItemVenta, MedioPago, Venta } from '@/db/buffet';
 import type { ResumenTurno } from './cierre';
-import { ANCHO_TICKET, centrar, enLinea, separador } from '@/lib/printer/escpos';
+import { centrar, enLinea, separador } from '@/lib/printer/escpos';
+import { columnasActivas } from '@/lib/printer/perfiles';
 
 export const CLUB = 'ADEO FUTBOL MAYOR';
 export const SUBTITULO = 'Buffet del club';
@@ -33,53 +34,73 @@ function hora(iso: string) {
   ).padStart(2, '0')}`;
 }
 
-function lineaItem(item: ItemVenta) {
-  const detalle = `${item.cantidad} x ${item.nombre}`;
-  return enLinea(detalle, pesos(item.precio * item.cantidad));
+/**
+ * Los tres helpers ya atados al ancho del ticket. Existen porque el ancho
+ * cambia con la impresora — 48 columnas en la XP-80 de 80 mm, 32 en la
+ * portátil de 58 — y pasarlo en cada llamada era imposible de leer.
+ */
+function formato(ancho: number) {
+  return {
+    linea: (izq: string, der: string) => enLinea(izq, der, ancho),
+    sep: (caracter = '-') => separador(caracter, ancho),
+    centro: (texto: string) => centrar(texto, ancho),
+    item: (item: ItemVenta) =>
+      enLinea(
+        `${item.cantidad} x ${item.nombre}`,
+        pesos(item.precio * item.cantidad),
+        ancho
+      ),
+  };
 }
 
 /**
  * Ticket de prueba. La regla numerada sirve para ver de un vistazo si el papel
- * y la fuente dan las 48 columnas: si se corta o se parte en dos renglones, el
- * ancho está mal configurado.
+ * y la fuente dan las columnas del perfil: si se corta o se parte en dos
+ * renglones, la impresora elegida no es la que hay enchufada.
  */
-export function ticketPrueba(): string[] {
-  const regla = Array.from({ length: ANCHO_TICKET }, (_, i) =>
-    String((i + 1) % 10)
-  ).join('');
+export function ticketPrueba(ancho = columnasActivas()): string[] {
+  const f = formato(ancho);
+  const regla = Array.from({ length: ancho }, (_, i) => String((i + 1) % 10)).join('');
 
   return [
-    centrar(CLUB),
-    centrar('PRUEBA DE IMPRESION'),
-    separador(),
+    f.centro(CLUB),
+    f.centro('PRUEBA DE IMPRESION'),
+    f.sep(),
     fechaHora(new Date().toISOString()),
+    `${ancho} columnas`,
     '',
     regla,
-    separador('='),
-    enLinea('Izquierda', 'Derecha'),
-    centrar('Centrado'),
-    separador(),
-    centrar('Si se lee esto, esta lista.'),
+    f.sep('='),
+    f.linea('Izquierda', 'Derecha'),
+    f.centro('Centrado'),
+    f.sep(),
+    f.centro('Si se lee esto, esta lista.'),
     '',
   ];
 }
 
 /** Ticket de una venta. Sale solo apenas se cobra. */
-export function ticketVenta(venta: Venta, cajero: string): string[] {
+export function ticketVenta(
+  venta: Venta,
+  cajero: string,
+  ancho = columnasActivas()
+): string[] {
+  const f = formato(ancho);
+
   return [
-    centrar(CLUB),
-    centrar(SUBTITULO),
-    separador('='),
-    enLinea('Fecha', fechaHora(venta.creadoEn)),
-    enLinea('Cajero', cajero),
-    separador(),
-    ...venta.items.map(lineaItem),
-    separador(),
-    enLinea('TOTAL', pesos(venta.total)),
-    enLinea('Pago', MEDIO_LABEL[venta.medioPago]),
+    f.centro(CLUB),
+    f.centro(SUBTITULO),
+    f.sep('='),
+    f.linea('Fecha', fechaHora(venta.creadoEn)),
+    f.linea('Cajero', cajero),
+    f.sep(),
+    ...venta.items.map(f.item),
+    f.sep(),
+    f.linea('TOTAL', pesos(venta.total)),
+    f.linea('Pago', MEDIO_LABEL[venta.medioPago]),
     '',
-    centrar('Gracias por acompanar al club'),
-    centrar(venta.id.slice(0, 8)),
+    f.centro('Gracias por acompanar al club'),
+    f.centro(venta.id.slice(0, 8)),
   ];
 }
 
@@ -88,24 +109,29 @@ export function ticketVenta(venta: Venta, cajero: string): string[] {
  * grande y con lo mínimo. El de menor de 12 se imprime igual aunque no pague:
  * sirve para contarlo y para que tenga su comprobante.
  */
-export function ticketEntrada(venta: Venta, cajero: string): string[] {
+export function ticketEntrada(
+  venta: Venta,
+  cajero: string,
+  ancho = columnasActivas()
+): string[] {
+  const f = formato(ancho);
   const item = venta.items[0];
 
   return [
-    centrar(CLUB),
-    centrar('ENTRADA'),
-    separador('='),
+    f.centro(CLUB),
+    f.centro('ENTRADA'),
+    f.sep('='),
     '',
-    centrar((item?.nombre ?? '').toUpperCase()),
-    centrar(venta.total > 0 ? pesos(venta.total) : 'SIN CARGO'),
+    f.centro((item?.nombre ?? '').toUpperCase()),
+    f.centro(venta.total > 0 ? pesos(venta.total) : 'SIN CARGO'),
     '',
-    separador(),
-    enLinea('Fecha', fechaHora(venta.creadoEn)),
-    enLinea('Cajero', cajero),
-    enLinea('Nro', venta.id.slice(0, 8).toUpperCase()),
+    f.sep(),
+    f.linea('Fecha', fechaHora(venta.creadoEn)),
+    f.linea('Cajero', cajero),
+    f.linea('Nro', venta.id.slice(0, 8).toUpperCase()),
     '',
-    centrar('Valido para el ingreso de hoy'),
-    centrar('No reembolsable'),
+    f.centro('Valido para el ingreso de hoy'),
+    f.centro('No reembolsable'),
   ];
 }
 
@@ -114,67 +140,73 @@ export function ticketEntrada(venta: Venta, cajero: string): string[] {
  * sin abrir la tablet: qué se vendió, cómo se cobró y cuánta plata tiene que
  * haber en la caja.
  */
-export function ticketCierre(resumen: ResumenTurno): string[] {
+export function ticketCierre(
+  resumen: ResumenTurno,
+  ancho = columnasActivas()
+): string[] {
+  const f = formato(ancho);
+
   const lineas: string[] = [
-    centrar(CLUB),
-    centrar('CIERRE DE CAJA'),
-    separador('='),
-    enLinea('Cajero', resumen.cajero),
-    enLinea('Apertura', fechaHora(resumen.abiertoEn)),
-    enLinea('Cierre', resumen.cerradoEn ? fechaHora(resumen.cerradoEn) : hora(new Date().toISOString())),
-    separador('='),
+    f.centro(CLUB),
+    f.centro('CIERRE DE CAJA'),
+    f.sep('='),
+    f.linea('Cajero', resumen.cajero),
+    f.linea('Apertura', fechaHora(resumen.abiertoEn)),
+    f.linea(
+      'Cierre',
+      resumen.cerradoEn ? fechaHora(resumen.cerradoEn) : hora(new Date().toISOString())
+    ),
+    f.sep('='),
     'VENTAS POR PRODUCTO',
-    separador(),
+    f.sep(),
   ];
 
   if (resumen.porProducto.length === 0) {
     lineas.push('  (sin ventas en el turno)');
   } else {
     for (const p of resumen.porProducto) {
-      lineas.push(enLinea(`${p.cantidad} x ${p.nombre}`, pesos(p.total)));
+      lineas.push(f.linea(`${p.cantidad} x ${p.nombre}`, pesos(p.total)));
     }
   }
 
   lineas.push(
-    separador(),
-    enLinea(
+    f.sep(),
+    f.linea(
       `TOTAL (${resumen.ventasValidas} ${resumen.ventasValidas === 1 ? 'venta' : 'ventas'})`,
       pesos(resumen.totalGeneral)
     ),
     '',
     'POR MEDIO DE PAGO',
-    separador()
+    f.sep()
   );
 
   if (resumen.porMedio.length === 0) {
     lineas.push('  (sin cobros)');
   } else {
     for (const m of resumen.porMedio) {
-      lineas.push(
-        enLinea(`${MEDIO_LABEL[m.medio]} (${m.cantidad})`, pesos(m.total))
-      );
+      lineas.push(f.linea(`${MEDIO_LABEL[m.medio]} (${m.cantidad})`, pesos(m.total)));
     }
   }
 
   lineas.push(
     '',
     'ANULADAS',
-    separador(),
-    enLinea(
+    f.sep(),
+    f.linea(
       `${resumen.anuladas.cantidad} ${resumen.anuladas.cantidad === 1 ? 'venta' : 'ventas'}`,
       pesos(resumen.anuladas.total)
     ),
     '',
     'CAJA',
-    separador(),
-    enLinea('Fondo inicial', pesos(resumen.fondoInicial)),
-    enLinea('Cobrado en efectivo', pesos(resumen.efectivoVendido)),
-    enLinea('EFECTIVO ESPERADO', pesos(resumen.efectivoEsperado)),
-    separador('='),
-    enLinea('TOTAL GENERAL', pesos(resumen.totalGeneral)),
+    f.sep(),
+    f.linea('Fondo inicial', pesos(resumen.fondoInicial)),
+    f.linea('Cobrado efectivo', pesos(resumen.efectivoVendido)),
+    f.linea('EFECTIVO ESPERADO', pesos(resumen.efectivoEsperado)),
+    f.sep('='),
+    f.linea('TOTAL GENERAL', pesos(resumen.totalGeneral)),
     '',
-    centrar('Firma: ____________________'),
-    '',
+    f.centro('Firma: ________________'),
+    ''
   );
 
   return lineas;
@@ -193,16 +225,19 @@ export type TurnoDelReporte = {
  */
 export function ticketReporte(
   puesto: string,
-  turnos: TurnoDelReporte[]
+  turnos: TurnoDelReporte[],
+  ancho = columnasActivas()
 ): string[] {
+  const f = formato(ancho);
+
   const lineas: string[] = [
-    centrar(CLUB),
-    centrar('REPORTE DE TURNOS'),
-    separador('='),
-    enLinea('Puesto', puesto),
-    enLinea('Emitido', fechaHora(new Date().toISOString())),
-    enLinea('Turnos', String(turnos.length)),
-    separador('='),
+    f.centro(CLUB),
+    f.centro('REPORTE DE TURNOS'),
+    f.sep('='),
+    f.linea('Puesto', puesto),
+    f.linea('Emitido', fechaHora(new Date().toISOString())),
+    f.linea('Turnos', String(turnos.length)),
+    f.sep('='),
   ];
 
   if (turnos.length === 0) {
@@ -214,27 +249,24 @@ export function ticketReporte(
       `${fechaHora(resumen.abiertoEn)} - ${
         resumen.cerradoEn ? hora(resumen.cerradoEn) : 'abierto'
       }`,
-      enLinea(
+      f.linea(
         `  ${resumen.cajero}`,
         `${resumen.ventasValidas} ${resumen.ventasValidas === 1 ? 'venta' : 'ventas'}`
       ),
-      enLinea('  Efectivo', pesos(resumen.efectivoVendido)),
-      enLinea('  Total', pesos(resumen.totalGeneral))
+      f.linea('  Efectivo', pesos(resumen.efectivoVendido)),
+      f.linea('  Total', pesos(resumen.totalGeneral))
     );
 
     if (resumen.anuladas.cantidad > 0) {
       lineas.push(
-        enLinea(
-          `  Anuladas (${resumen.anuladas.cantidad})`,
-          pesos(resumen.anuladas.total)
-        )
+        f.linea(`  Anuladas (${resumen.anuladas.cantidad})`, pesos(resumen.anuladas.total))
       );
     }
     // Marca lo que todavía no llegó al servidor: sin conexión es el único
     // lugar donde queda registrado que falta subirlo.
     if (!synced) lineas.push('  * sin sincronizar');
 
-    lineas.push(separador());
+    lineas.push(f.sep());
   }
 
   const total = turnos.reduce((a, t) => a + t.resumen.totalGeneral, 0);
@@ -243,20 +275,18 @@ export function ticketReporte(
   const pendientes = turnos.filter((t) => !t.synced).length;
 
   lineas.push(
-    enLinea(`TOTAL (${ventas} ventas)`, pesos(total)),
-    enLinea('Efectivo', pesos(efectivo)),
-    separador('=')
+    f.linea(`TOTAL (${ventas} ventas)`, pesos(total)),
+    f.linea('Efectivo', pesos(efectivo)),
+    f.sep('=')
   );
 
   if (pendientes > 0) {
     lineas.push(
-      centrar(`${pendientes} turno(s) sin sincronizar`),
-      centrar('subir cuando haya conexion')
+      f.centro(`${pendientes} turno(s) sin sincronizar`),
+      f.centro('subir cuando haya conexion')
     );
   }
 
-  lineas.push('', centrar('Firma: ____________________'), '');
+  lineas.push('', f.centro('Firma: ________________'), '');
   return lineas;
 }
-
-export { ANCHO_TICKET };

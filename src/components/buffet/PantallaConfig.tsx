@@ -28,9 +28,16 @@ import {
 import {
   TRANSPORTES,
   conectar,
+  getPerfil,
   getPreferencia,
+  getPuente,
   imprimirSeguro,
+  listarPerfiles,
+  setPerfil,
   setPreferencia,
+  setPuente,
+  type PerfilId,
+  type PerfilImpresora,
   type PreferenciaImpresora,
   type Transporte,
 } from '@/lib/printer';
@@ -60,6 +67,8 @@ function Config() {
   const [aviso, setAviso] = useState<string | null>(null);
   const [previa, setPrevia] = useState<string[] | null>(null);
   const [impresion, setImpresion] = useState<PreferenciaImpresora>('auto');
+  const [perfil, setPerfilEstado] = useState<PerfilImpresora>(listarPerfiles()[0]);
+  const [puente, setPuenteEstado] = useState('');
 
   const [nombre, setNombre] = useState('');
   const [precio, setPrecio] = useState('');
@@ -68,7 +77,11 @@ function Config() {
   const [cajeroNombre, setCajeroNombre] = useState('');
   const [cajeroPin, setCajeroPin] = useState('');
 
-  useEffect(() => setImpresion(getPreferencia()), []);
+  useEffect(() => {
+    setImpresion(getPreferencia());
+    setPerfilEstado(getPerfil());
+    setPuenteEstado(getPuente());
+  }, []);
 
   useEffect(() => {
     if (!aviso) return;
@@ -171,6 +184,23 @@ function Config() {
     setImpresion(p);
   }
 
+  /**
+   * Cambiar de impresora cambia el ancho de todos los tickets, así que se
+   * vuelve a automático: la conexión que servía para una no tiene por qué
+   * servir para la otra.
+   */
+  function elegirPerfil(id: PerfilId) {
+    setPerfil(id);
+    setPerfilEstado(getPerfil());
+    elegirImpresion('auto');
+    setPrevia(null);
+  }
+
+  function guardarPuente(url: string) {
+    setPuente(url);
+    setPuenteEstado(url);
+  }
+
   /** Manda un ticket de prueba por la vía elegida, para no descubrirlo vendiendo. */
   async function probarImpresion() {
     setAviso('Imprimiendo prueba…');
@@ -235,6 +265,34 @@ function Config() {
           conectada, la venta se guarda igual y avisa.
         </p>
 
+        <div className="grid gap-2 sm:grid-cols-2">
+          {listarPerfiles().map((op) => (
+            <button
+              key={op.id}
+              type="button"
+              onClick={() => elegirPerfil(op.id)}
+              aria-pressed={perfil.id === op.id}
+              className={`rounded-lg border p-3 text-left ${
+                perfil.id === op.id
+                  ? 'border-emerald-500 bg-emerald-500/10'
+                  : 'border-panel-700 bg-panel-850'
+              }`}
+            >
+              <span className="block text-sm font-medium text-zinc-100">
+                {op.label}
+              </span>
+              <span className="block text-xs text-zinc-400">
+                {op.columnas} columnas
+                {op.guillotina ? ' · corta sola' : ' · se corta a mano'}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <h3 className="pt-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          Cómo conectarla
+        </h3>
+
         <div className="space-y-2">
           <button
             type="button"
@@ -250,15 +308,23 @@ function Config() {
               Automático
             </span>
             <span className="block text-xs text-zinc-400">
-              Prueba USB y después el puerto COM.
+              Prueba{' '}
+              {perfil.transportes
+                .filter((t) => t !== 'sistema')
+                .map((t) => TRANSPORTES[t].label)
+                .join(', ')}
+              .
             </span>
           </button>
 
-          {TRANSPORTES.map((t) => (
+          {/* Sólo las conexiones que tienen sentido para esta impresora: la
+              portátil no tiene puerto de red ni COM, y la del mostrador no es
+              Bluetooth. */}
+          {perfil.transportes.map((t) => (
             <div
-              key={t.id}
+              key={t}
               className={`rounded-lg border p-3 ${
-                impresion === t.id
+                impresion === t
                   ? 'border-emerald-500 bg-emerald-500/10'
                   : 'border-panel-700 bg-panel-850'
               }`}
@@ -266,25 +332,46 @@ function Config() {
               <div className="flex items-center justify-between gap-3">
                 <button
                   type="button"
-                  onClick={() => elegirImpresion(t.id)}
-                  aria-pressed={impresion === t.id}
+                  onClick={() => elegirImpresion(t)}
+                  aria-pressed={impresion === t}
                   className="flex-1 text-left"
                 >
                   <span className="block text-sm font-medium text-zinc-100">
-                    {t.label}
+                    {TRANSPORTES[t].label}
                   </span>
-                  <span className="block text-xs text-zinc-400">{t.detalle}</span>
+                  <span className="block text-xs text-zinc-400">
+                    {TRANSPORTES[t].detalle}
+                  </span>
                 </button>
-                {t.id !== 'sistema' && (
+                {TRANSPORTES[t].necesitaConectar && (
                   <button
                     type="button"
-                    onClick={() => void conectarImpresora(t.id)}
+                    onClick={() => void conectarImpresora(t)}
                     className="btn-ghost shrink-0 px-3 py-2 text-xs"
                   >
                     Conectar
                   </button>
                 )}
               </div>
+
+              {/* La impresora de red no la alcanza el navegador: hay que decirle
+                  a qué puente mandarle el ticket. */}
+              {t === 'red' && impresion === 'red' && (
+                <label className="mt-3 block text-xs text-zinc-400">
+                  Puente de impresión
+                  <input
+                    value={puente}
+                    onChange={(e) => guardarPuente(e.target.value)}
+                    placeholder="/api/print"
+                    className="input-base mt-1"
+                  />
+                  <span className="mt-1 block text-[11px] text-zinc-500">
+                    Impresora en {perfil.host}:{perfil.puerto}. Si la app está
+                    publicada en internet, poné acá la dirección del puente que
+                    corre en la red del club.
+                  </span>
+                </label>
+              )}
             </div>
           ))}
         </div>

@@ -1,11 +1,8 @@
 'use client';
 
-import { CMD, codificar, rasterDesdeCanvas, unir } from './escpos';
-import {
-  ImpresoraNoDisponible,
-  type EstadoImpresora,
-  type Printer,
-} from './tipos';
+import { ImpresoraEscPos } from './base';
+import { CMD } from './escpos';
+import { ImpresoraNoDisponible, type EstadoImpresora } from './tipos';
 
 /** Clase USB 7 = impresoras. */
 const CLASE_IMPRESORA = 7;
@@ -80,7 +77,7 @@ function candidatasDeSalida(device: USBDevice): Candidata[] {
   );
 }
 
-export class ImpresoraWebUSB implements Printer {
+export class ImpresoraWebUSB extends ImpresoraEscPos {
   readonly nombre = 'USB (ESC/POS)';
   private salida: Salida | null = null;
 
@@ -162,7 +159,7 @@ export class ImpresoraWebUSB implements Printer {
     }
   }
 
-  private async enviar(datos: Uint8Array) {
+  protected async enviar(datos: Uint8Array) {
     if (!this.salida) {
       throw new ImpresoraNoDisponible('La impresora no está conectada.');
     }
@@ -171,17 +168,5 @@ export class ImpresoraWebUSB implements Printer {
     if (resultado.status !== 'ok') {
       throw new ImpresoraNoDisponible(`La impresora respondió "${resultado.status}".`);
     }
-  }
-
-  async printText(lines: string[]) {
-    await this.enviar(unir(CMD.init(), codificar(lines.join('\n') + '\n')));
-  }
-
-  async printRaster(canvas: HTMLCanvasElement) {
-    await this.enviar(unir(CMD.init(), rasterDesdeCanvas(canvas), codificar('\n')));
-  }
-
-  async cut() {
-    await this.enviar(unir(CMD.avanzar(4), CMD.cortar()));
   }
 }

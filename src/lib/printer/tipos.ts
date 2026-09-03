@@ -1,9 +1,26 @@
+import type { PerfilImpresora } from './perfiles';
+
 export type EstadoImpresora = 'sin-soporte' | 'desconectada' | 'conectada';
 
 /**
- * Contrato mínimo de una impresora de tickets. La implementación actual es
- * WebUSB; el día que haga falta una por Bluetooth alcanza con otra clase que
- * cumpla esto, sin tocar las pantallas.
+ * Las formas de llegar al papel. Ninguna anda en todos lados, por eso están
+ * todas:
+ *
+ * - `usb` (WebUSB): la tablet Android. En Windows el sistema toma la impresora
+ *   con su propio driver y el navegador no puede reclamarla.
+ * - `serie` (Web Serial): el puerto COM que publica el driver. Convive con él
+ *   en vez de pelearlo, así que anda en Windows.
+ * - `bluetooth` (Web Bluetooth): la portátil GOOJPRT, que es BLE.
+ * - `red`: la XP-80 con puerto Ethernet, por el puente local (ver `red.ts`).
+ * - `sistema`: le manda el ticket al driver como documento. Anda siempre, a
+ *   cambio del diálogo de impresión.
+ */
+export type Transporte = 'usb' | 'serie' | 'bluetooth' | 'red' | 'sistema';
+
+/**
+ * Contrato mínimo de una impresora de tickets. El perfil viaja en cada
+ * impresión porque decide el ancho, el avance y si hay guillotina: la misma
+ * conexión puede tener que imprimir distinto si se cambia de impresora.
  */
 export interface Printer {
   readonly nombre: string;
@@ -12,9 +29,8 @@ export interface Printer {
   connect(): Promise<void>;
   /** Reconecta sin diálogo si el permiso ya fue dado antes. */
   reconnect(): Promise<boolean>;
-  printText(lines: string[]): Promise<void>;
-  printRaster(canvas: HTMLCanvasElement): Promise<void>;
-  cut(): Promise<void>;
+  /** Imprime el ticket entero: texto, avance y corte según el perfil. */
+  imprimir(lineas: string[], perfil: PerfilImpresora): Promise<void>;
 }
 
 /** La impresora nunca puede frenar un cobro: los errores se avisan, no rompen. */
