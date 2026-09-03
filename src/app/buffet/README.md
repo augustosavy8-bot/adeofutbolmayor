@@ -141,9 +141,33 @@ puerto serie que el propio driver publica.
    Se anuncian con nombres muy distintos según el lote (`PT-210`, `MTP-2`,
    `BlueTooth Printer`), por eso la lista no está filtrada.
 
-Sólo funciona con impresoras **Bluetooth LE**. Las de Bluetooth clásico (SPP)
-no se pueden usar desde ningún navegador: para esas hay que ir por USB. La
-GOOJPRT de 58 mm es BLE.
+### Si no conecta
+
+Que la impresora **ande en la app del fabricante y no acá** no quiere decir que
+esté rota: no usan la misma vía. La app del fabricante es nativa y habla
+**Bluetooth clásico (SPP)**; una página web sólo puede hablar **Bluetooth LE**.
+Son dos protocolos distintos sobre la misma antena, y ningún navegador —Chrome,
+Edge, el que sea— llega al primero. Muchas térmicas soportan los dos; algunas,
+sólo SPP, y esas hay que conectarlas por USB.
+
+En vez de adivinar cuál es el caso, usá **Config → Diagnóstico Bluetooth**
+(o **Diagnóstico USB**). Se conecta, lista todo lo que la impresora expone y lo
+deja para copiar. Lo que dice y qué significa:
+
+| Dice | Qué pasa | Salida |
+|---|---|---|
+| `Bluetooth (BLE): NO disponible` | El navegador no tiene la API | Chrome en Android. En iPhone y iPad no existe en ninguno |
+| `Contexto seguro: NO` | La app está abierta por `http://` | Abrirla por HTTPS |
+| `Adaptador Bluetooth: APAGADO` | El Bluetooth del aparato está apagado | Prenderlo |
+| `es Bluetooth clasico (SPP), no BLE` | La impresora no habla BLE | Conectarla por USB |
+| `Servicios visibles: 0` | Es BLE, pero su UUID no está en la lista | Pasame el reporte: con el UUID se agrega |
+| `ninguno acepta escritura` | Expone servicios pero no hay dónde escribir | Pasame el reporte |
+
+El caso de los **cero servicios** es el más traicionero, porque la impresora
+anda perfecto: `getPrimaryServices()` sólo devuelve los servicios que la app
+pidió de antemano en `optionalServices`, así que uno que no esté en la lista de
+`SERVICIOS` (en `src/lib/printer/bluetooth.ts`) es invisible aunque exista.
+Agregar el UUID que reporte el diagnóstico alcanza.
 
 Si el ticket sale cortado o con basura, bajá `bleChunk` de 180 a 100 en
 `src/lib/printer/perfiles.ts`: el buffer de estas impresoras es chico y hay

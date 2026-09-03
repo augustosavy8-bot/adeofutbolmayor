@@ -41,6 +41,10 @@ import {
   type PreferenciaImpresora,
   type Transporte,
 } from '@/lib/printer';
+import {
+  diagnosticoBluetooth,
+  diagnosticoUsb,
+} from '@/lib/printer/diagnostico';
 import { sincronizar } from '@/lib/buffet-sync';
 import { Shell } from './Shell';
 
@@ -65,7 +69,7 @@ function Config() {
   );
 
   const [aviso, setAviso] = useState<string | null>(null);
-  const [previa, setPrevia] = useState<string[] | null>(null);
+  const [previa, setPrevia] = useState<{ titulo: string; lineas: string[] } | null>(null);
   const [impresion, setImpresion] = useState<PreferenciaImpresora>('auto');
   const [perfil, setPerfilEstado] = useState<PerfilImpresora>(listarPerfiles()[0]);
   const [puente, setPuenteEstado] = useState('');
@@ -131,11 +135,13 @@ function Config() {
       synced: false,
     };
     const nombre = cajero?.nombre ?? '';
-    setPrevia(
-      puesto === 'entrada'
-        ? ticketEntrada(ejemplo, nombre)
-        : ticketVenta(ejemplo, nombre)
-    );
+    setPrevia({
+      titulo: tituloTicket(),
+      lineas:
+        puesto === 'entrada'
+          ? ticketEntrada(ejemplo, nombre)
+          : ticketVenta(ejemplo, nombre),
+    });
   }
 
   /**
@@ -158,14 +164,14 @@ function Config() {
       });
     }
 
-    setPrevia(ticketReporte(PUESTOS[puesto].label, filas));
+    setPrevia({ titulo: tituloTicket(), lineas: ticketReporte(PUESTOS[puesto].label, filas) });
   }
 
   /** El cierre de verdad del turno abierto, no un ejemplo. */
   async function previaCierre() {
     if (!turno) return;
     const ventas = await ventasDelTurno(turno.id);
-    setPrevia(ticketCierre(resumirTurno(turno, ventas, cajero)));
+    setPrevia({ titulo: tituloTicket(), lineas: ticketCierre(resumirTurno(turno, ventas, cajero)) });
   }
 
   async function conectarImpresora(t: Transporte) {
@@ -177,6 +183,11 @@ function Config() {
     } catch (e) {
       setAviso(e instanceof Error ? e.message : 'No se pudo conectar.');
     }
+  }
+
+  /** "Así sale por el papel (32 columnas)", con el ancho de la impresora elegida. */
+  function tituloTicket() {
+    return `Así sale por el papel (${perfil.columnas} columnas)`;
   }
 
   function elegirImpresion(p: PreferenciaImpresora) {
@@ -199,6 +210,33 @@ function Config() {
   function guardarPuente(url: string) {
     setPuente(url);
     setPuenteEstado(url);
+  }
+
+  /**
+   * Muestra lo que el navegador ve de la impresora. Sin esto, "no conecta" es
+   * indistinguible entre cinco causas y no hay forma de saber cuál tocó.
+   */
+  async function diagnosticar(via: 'bluetooth' | 'usb') {
+    setAviso('Revisando…');
+    try {
+      setPrevia({
+        titulo: `Diagnóstico ${via === 'bluetooth' ? 'Bluetooth' : 'USB'}`,
+        lineas: await (via === 'bluetooth' ? diagnosticoBluetooth() : diagnosticoUsb()),
+      });
+      setAviso(null);
+    } catch (e) {
+      setAviso(e instanceof Error ? e.message : 'No se pudo revisar.');
+    }
+  }
+
+  async function copiarPrevia() {
+    if (!previa) return;
+    try {
+      await navigator.clipboard.writeText(previa.lineas.join('\n'));
+      setAviso('Copiado.');
+    } catch {
+      setAviso('No se pudo copiar. Sacale una foto a la pantalla.');
+    }
   }
 
   /** Manda un ticket de prueba por la vía elegida, para no descubrirlo vendiendo. */
@@ -386,6 +424,20 @@ function Config() {
           </button>
           <button
             type="button"
+            onClick={() => void diagnosticar('bluetooth')}
+            className="btn-ghost h-14"
+          >
+            Diagnóstico Bluetooth
+          </button>
+          <button
+            type="button"
+            onClick={() => void diagnosticar('usb')}
+            className="btn-ghost h-14"
+          >
+            Diagnóstico USB
+          </button>
+          <button
+            type="button"
             onClick={() => void sincronizarAhora()}
             className="btn-ghost h-14"
           >
@@ -415,16 +467,22 @@ function Config() {
 
         {previa && (
           <div className="rounded-lg bg-panel-950 p-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                Así sale por el papel (48 columnas)
+                {previa.titulo}
               </p>
-              <div className="flex gap-2">
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  onClick={() => void copiarPrevia()}
+                  className="h-9 rounded-lg px-3 text-xs text-zinc-400"
+                >
+                  Copiar
+                </button>
                 <button
                   type="button"
                   onClick={async () => {
-                    if (!previa) return;
-                    const r = await imprimirSeguro(previa);
+                    const r = await imprimirSeguro(previa.lineas);
                     setAviso(r.ok ? 'Impreso.' : r.motivo);
                   }}
                   className="h-9 rounded-lg bg-adeo-rojo px-3 text-xs font-semibold text-white"
@@ -441,7 +499,7 @@ function Config() {
               </div>
             </div>
             <pre className="mt-2 overflow-x-auto whitespace-pre font-mono text-[11px] leading-tight text-zinc-300">
-              {previa.join('\n')}
+              {previa.lineas.join('\n')}
             </pre>
           </div>
         )}

@@ -6,15 +6,29 @@ import { getPerfil, type PerfilImpresora } from './perfiles';
 import { ImpresoraNoDisponible, type EstadoImpresora } from './tipos';
 
 /**
- * UUIDs de servicio que usan estas impresoras chinas. No hay uno estándar, así
- * que se piden todos como `optionalServices` y después se busca en cada uno la
- * característica que acepte escritura.
+ * UUIDs de servicio de impresoras térmicas BLE. No hay uno estándar: cada
+ * fabricante usa el suyo, y hasta lotes distintos del mismo modelo cambian.
+ *
+ * La lista importa más de lo que parece. `getPrimaryServices()` devuelve
+ * **solamente** los servicios que se pidieron en `optionalServices`: si el de
+ * la impresora no está acá, el navegador se conecta pero no ve ningún
+ * servicio, y parece que la impresora no sirve cuando en realidad anda.
  */
-const SERVICIOS = [
-  '000018f0-0000-1000-8000-00805f9b34fb',
-  '0000ff00-0000-1000-8000-00805f9b34fb',
-  '0000ffe0-0000-1000-8000-00805f9b34fb',
-  '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+export const SERVICIOS = [
+  '000018f0-0000-1000-8000-00805f9b34fb', // el más común (char 2af1)
+  '0000ff00-0000-1000-8000-00805f9b34fb', // char ff02
+  '0000ffe0-0000-1000-8000-00805f9b34fb', // módulos tipo HM-10
+  '0000ffe5-0000-1000-8000-00805f9b34fb',
+  '0000ff80-0000-1000-8000-00805f9b34fb',
+  '0000fee7-0000-1000-8000-00805f9b34fb', // char 36f5, muy visto en GOOJPRT
+  '0000ae30-0000-1000-8000-00805f9b34fb', // char ae01
+  '49535343-fe7d-4ae5-8fa9-9fafd205e455', // UART transparente de Microchip
+  '6e400001-b5a3-f393-e0a9-e50e24dcca9e', // UART de Nordic
+  'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
+  '0000180a-0000-1000-8000-00805f9b34fb', // información del fabricante
+  // SPP. Si es lo único que aparece, la impresora es de Bluetooth clásico y
+  // no hay forma de usarla desde el navegador; sirve para poder decirlo.
+  '00001101-0000-1000-8000-00805f9b34fb',
 ];
 
 function hayBluetooth() {
@@ -62,10 +76,17 @@ export class ImpresoraBluetooth extends ImpresoraEscPos {
       }
     }
 
+    // Cero servicios y "servicios pero ninguno escribible" son problemas muy
+    // distintos, y el que sufre no puede adivinar cuál le tocó.
+    const cuantos = (await servidor.getPrimaryServices()).length;
     throw new ImpresoraNoDisponible(
-      'Se conectó, pero la impresora no expone por dónde mandarle el ticket. ' +
-        'Fijate que sea un modelo Bluetooth LE: los de Bluetooth clásico no se ' +
-        'pueden usar desde el navegador.'
+      cuantos === 0
+        ? 'Se conectó, pero el navegador no ve ningún servicio conocido en la ' +
+          'impresora. Usá "Diagnóstico de impresora" en Configuración y ' +
+          'pasame lo que dice.'
+        : `Se conectó y encontró ${cuantos} servicio(s), pero ninguno acepta ` +
+          'escritura, así que no hay por dónde mandarle el ticket. Usá ' +
+          '"Diagnóstico de impresora" en Configuración y pasame lo que dice.'
     );
   }
 
