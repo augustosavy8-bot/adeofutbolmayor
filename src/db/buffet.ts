@@ -240,6 +240,18 @@ export async function crearCajero(nombre: string, pin: string) {
   return cajero;
 }
 
+/**
+ * Cambia el PIN sin pedir el anterior.
+ *
+ * Es a propósito: el PIN dice quién está en la caja para el arqueo, no protege
+ * nada — el que tiene la tablet en la mano ya puede vender. Si además hiciera
+ * falta el PIN viejo para cambiarlo, olvidarlo dejaría la caja inaccesible
+ * para siempre, que es exactamente lo que pasaba antes.
+ */
+export async function cambiarPin(cajeroId: string, pin: string) {
+  await db().cajeros.update(cajeroId, { pin: await hashPin(pin) });
+}
+
 export async function cajerosActivos() {
   return (await db().cajeros.orderBy('nombre').toArray()).filter((c) => c.activo);
 }

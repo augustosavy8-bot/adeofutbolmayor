@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import {
   abrirTurno,
   cajerosActivos,
+  cambiarPin,
   crearCajero,
   turnoAbierto,
   verificarPin,
@@ -16,7 +17,23 @@ import { useLive } from '@/lib/buffet/useLive';
 import { pesos } from '@/lib/buffet/ticket';
 import { Teclado } from './Teclado';
 
-type Paso = 'cajero' | 'pin' | 'fondo' | 'primer-cajero';
+/** Los cuatro puntitos que se van llenando al tocar el teclado. */
+function Puntos({ largo }: { largo: number }) {
+  return (
+    <div className="flex justify-center gap-3">
+      {[0, 1, 2, 3].map((i) => (
+        <span
+          key={i}
+          className={`h-5 w-5 rounded-full ${
+            i < largo ? 'bg-adeo-rojo' : 'bg-panel-700'
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
+
+type Paso = 'cajero' | 'pin' | 'fondo' | 'nuevo-cajero' | 'nuevo-pin';
 
 export function PantallaLogin() {
   const router = useRouter();
@@ -38,8 +55,28 @@ export function PantallaLogin() {
 
   // Primera vez en la tablet: sin cajeros no se puede entrar a ningún lado.
   useEffect(() => {
-    if (!cargando && cajeros.length === 0) setPaso('primer-cajero');
+    if (!cargando && cajeros.length === 0) setPaso('nuevo-cajero');
   }, [cargando, cajeros.length]);
+
+  /**
+   * Qué hacer una vez que el cajero quedó identificado. Si el turno sigue
+   * abierto se entra derecho; si no, se pide el fondo. Lo comparten el login
+   * normal y el cambio de PIN: sin esto, cambiar el PIN pedía fondo inicial
+   * otra vez y abría un segundo turno sobre uno ya abierto.
+   */
+  async function seguirConCajero(cajero: Cajero) {
+    setError(null);
+    setPin('');
+
+    const abierto = await turnoAbierto(puesto);
+    if (abierto) {
+      // El turno sigue abierto (por ejemplo, se recargó la tablet).
+      entrar(cajero, abierto);
+      router.replace(base);
+      return;
+    }
+    setPaso('fondo');
+  }
 
   async function confirmarPin() {
     if (!elegido) return;
@@ -48,16 +85,7 @@ export function PantallaLogin() {
       setPin('');
       return;
     }
-
-    const abierto = await turnoAbierto(puesto);
-    if (abierto) {
-      // El turno sigue abierto (por ejemplo, se recargó la tablet).
-      entrar(elegido, abierto);
-      router.replace(base);
-      return;
-    }
-    setError(null);
-    setPaso('fondo');
+    await seguirConCajero(elegido);
   }
 
   async function confirmarFondo() {
@@ -67,14 +95,30 @@ export function PantallaLogin() {
     router.replace(base);
   }
 
-  async function crearPrimerCajero() {
+  async function crearNuevoCajero() {
     if (nombreNuevo.trim().length < 2 || pin.length !== 4) return;
     const cajero = await crearCajero(nombreNuevo, pin);
     setElegido(cajero);
     setNombreNuevo('');
+    await seguirConCajero(cajero);
+  }
+
+  /**
+   * Salida para el PIN olvidado. Sin esto la caja quedaba inaccesible: la
+   * pantalla de crear cajero sólo aparecía con la tablet vacía, y Configuración
+   * está detrás de este mismo login.
+   */
+  async function ponerPinNuevo() {
+    if (!elegido || pin.length !== 4) return;
+    await cambiarPin(elegido.id, pin);
+    await seguirConCajero(elegido);
+  }
+
+  function volverAElegir() {
+    setPaso('cajero');
     setPin('');
+    setNombreNuevo('');
     setError(null);
-    setPaso('fondo');
   }
 
   return (
@@ -87,7 +131,9 @@ export function PantallaLogin() {
           {paso === 'cajero' && 'Elegí tu usuario'}
           {paso === 'pin' && `PIN de ${elegido?.nombre}`}
           {paso === 'fondo' && 'Fondo inicial de caja'}
-          {paso === 'primer-cajero' && 'Primer cajero de esta tablet'}
+          {paso === 'nuevo-cajero' &&
+            (cajeros.length === 0 ? 'Primer cajero de esta tablet' : 'Cajero nuevo')}
+          {paso === 'nuevo-pin' && `PIN nuevo para ${elegido?.nombre}`}
         </p>
       </div>
 
@@ -119,21 +165,25 @@ export function PantallaLogin() {
               No hay cajeros cargados.
             </p>
           )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setPin('');
+              setNombreNuevo('');
+              setError(null);
+              setPaso('nuevo-cajero');
+            }}
+            className="w-full pt-1 text-sm text-zinc-500"
+          >
+            + Agregar cajero
+          </button>
         </div>
       )}
 
       {paso === 'pin' && (
         <>
-          <div className="flex justify-center gap-3">
-            {[0, 1, 2, 3].map((i) => (
-              <span
-                key={i}
-                className={`h-5 w-5 rounded-full ${
-                  i < pin.length ? 'bg-adeo-rojo' : 'bg-panel-700'
-                }`}
-              />
-            ))}
-          </div>
+          <Puntos largo={pin.length} />
 
           <Teclado
             onDigito={(d) => {
@@ -147,17 +197,26 @@ export function PantallaLogin() {
             aceptarActivo={pin.length === 4}
           />
 
-          <button
-            type="button"
-            onClick={() => {
-              setPaso('cajero');
-              setPin('');
-              setError(null);
-            }}
-            className="text-sm text-zinc-500"
-          >
-            ← Cambiar de cajero
-          </button>
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={volverAElegir}
+              className="text-sm text-zinc-500"
+            >
+              ← Cambiar de cajero
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPin('');
+                setError(null);
+                setPaso('nuevo-pin');
+              }}
+              className="text-sm text-zinc-500"
+            >
+              Olvidé el PIN
+            </button>
+          </div>
         </>
       )}
 
@@ -179,11 +238,12 @@ export function PantallaLogin() {
         </>
       )}
 
-      {paso === 'primer-cajero' && (
+      {paso === 'nuevo-cajero' && (
         <div className="space-y-3">
           <p className="text-center text-xs text-zinc-500">
-            Todavía no hay ningún cajero en esta tablet. Creá el primero para
-            poder entrar; después se agregan más desde Configuración.
+            {cajeros.length === 0
+              ? 'Todavía no hay ningún cajero en esta tablet. Creá el primero para poder entrar.'
+              : 'El nombre es el que va a quedar en el cierre y en cada ticket.'}
           </p>
 
           <input
@@ -193,26 +253,55 @@ export function PantallaLogin() {
             className="input-base h-14 text-center text-lg"
           />
 
-          <div className="flex justify-center gap-3">
-            {[0, 1, 2, 3].map((i) => (
-              <span
-                key={i}
-                className={`h-5 w-5 rounded-full ${
-                  i < pin.length ? 'bg-adeo-rojo' : 'bg-panel-700'
-                }`}
-              />
-            ))}
-          </div>
+          <Puntos largo={pin.length} />
 
           <Teclado
             onDigito={(d) => setPin((p) => (p + d).slice(0, 4))}
             onBorrar={() => setPin((p) => p.slice(0, -1))}
-            onAceptar={() => void crearPrimerCajero()}
+            onAceptar={() => void crearNuevoCajero()}
             aceptarLabel="Crear"
             aceptarActivo={pin.length === 4 && nombreNuevo.trim().length >= 2}
           />
+
+          {cajeros.length > 0 && (
+            <button
+              type="button"
+              onClick={volverAElegir}
+              className="w-full text-sm text-zinc-500"
+            >
+              ← Volver
+            </button>
+          )}
         </div>
       )}
+
+      {paso === 'nuevo-pin' && (
+        <>
+          <p className="text-center text-xs text-zinc-500">
+            Elegí un PIN nuevo para {elegido?.nombre}. El anterior deja de
+            servir.
+          </p>
+
+          <Puntos largo={pin.length} />
+
+          <Teclado
+            onDigito={(d) => setPin((p) => (p + d).slice(0, 4))}
+            onBorrar={() => setPin((p) => p.slice(0, -1))}
+            onAceptar={() => void ponerPinNuevo()}
+            aceptarLabel="Guardar PIN"
+            aceptarActivo={pin.length === 4}
+          />
+
+          <button
+            type="button"
+            onClick={volverAElegir}
+            className="text-sm text-zinc-500"
+          >
+            ← Volver
+          </button>
+        </>
+      )}
+
     </main>
   );
 }

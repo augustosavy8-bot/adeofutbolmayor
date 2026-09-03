@@ -26,6 +26,12 @@ tres se editan desde Config como cualquier producto.
 No usa la sesión del panel. Se entra con un PIN de 4 dígitos por cajero, que se
 guarda hasheado en la tablet.
 
+El PIN dice **quién está en la caja** para el arqueo del cierre; no protege la
+plata ni los datos. El que tiene la tablet en la mano ya puede vender, así que
+desde el login se puede **agregar un cajero** o **cambiar un PIN olvidado** sin
+pedir el anterior. Es a propósito: si hiciera falta el PIN viejo para
+cambiarlo, olvidarlo dejaría esa caja inaccesible para siempre.
+
 ---
 
 ## 1. Instalar la PWA en la tablet
@@ -41,8 +47,12 @@ guarda hasheado en la tablet.
    avión y comprobar que abre igual.
 
 La primera vez que entrás, si no hay ningún cajero cargado, la pantalla de
-login te pide crear el primero (nombre + PIN). Los demás se agregan desde
-**Config**.
+login te pide crear el primero (nombre + PIN). Después se agregan más desde
+**Config** o desde el mismo login, con **+ Agregar cajero**.
+
+**Si nadie se acuerda el PIN de una caja:** tocá esa caja y después
+**Olvidé el PIN**. Se pone uno nuevo y se entra en el momento. No se pierde
+nada: el turno abierto, las ventas y el fondo quedan como estaban.
 
 Después cargá los productos en **Config**: sin productos no hay nada para
 vender.
