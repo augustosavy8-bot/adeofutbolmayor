@@ -230,17 +230,41 @@ quiera.
 Le manda el ticket al driver como documento, igual que cualquier programa de
 escritorio. No hay nada que emparejar: elegilo en **Config** y listo.
 
-El costo es que Chrome muestra el diálogo de impresión en cada ticket. Para
-sacarlo, abrí Chrome con **`--kiosk-printing`**: imprime directo en la
-impresora predeterminada, sin preguntar.
+El costo es que Chrome pregunta en cada ticket. Para que salga solo:
 
-```
-"C:\Program Files\Google\Chrome\Application\chrome.exe" --kiosk-printing --app=https://TU-DOMINIO/buffet
-```
+1. **Config → Acceso directo sin diálogo** baja un `.bat` ya armado con la
+   dirección de esta instalación. Abrí el buffet desde ese archivo.
+2. Dejá la impresora como **predeterminada** de Windows: `--kiosk-printing`
+   manda el ticket ahí sin preguntar.
 
-Dejá la impresora como **predeterminada** de Windows, con el tamaño de papel
-correcto (80 o 58 mm según cuál sea) y el **corte automático** activado en las
-propiedades del driver: por esta vía el corte lo hace el driver, no la app.
+El `.bat` abre Chrome con un **perfil propio** (`--user-data-dir`), y eso no es
+un adorno: si Chrome ya está abierto, una ventana nueva se engancha al proceso
+que ya corre y **las banderas se ignoran en silencio** — seguiría preguntando.
+Con perfil propio arranca un proceso aparte y la bandera vale siempre. La
+contra es que ese perfil tiene su propia base local, así que los cajeros y
+turnos hay que crearlos ahí.
+
+> Si no querés diálogo **ni** perfil aparte, la salida es el **Puerto COM**:
+> imprime en silencio sin banderas ni accesos directos.
+
+Dejá también el tamaño de papel correcto (80 o 58 mm) y el **corte automático**
+activado en las propiedades del driver: por esta vía el corte lo hace el
+driver, no la app.
+
+### El alto de la hoja
+
+Antes el ticket salía **acostado y con mucho papel de sobra**. La causa: con
+`size: 80mm auto` el navegador no sabe qué alto darle, termina usando el papel
+por defecto del driver, y si la caja queda más ancha que alta —un ticket corto
+en papel de 80 mm— la saca apaisada.
+
+Ahora la app **mide el ticket ya maquetado** y le fija a la hoja ese alto
+exacto más 4 mm de cola. Un cierre de 94 mm sale en una hoja de 98.
+
+En los tickets cortos el alto no baja del ancho del papel, que es lo que
+garantiza que salga vertical: una prueba de 38 mm sale en una hoja de 82. Si en
+tu impresora comprobás que sale derecha igual, **Config → Recortar el papel al
+alto del ticket** saca ese piso y la hoja se pega al contenido (38 → 42 mm).
 
 ---
 

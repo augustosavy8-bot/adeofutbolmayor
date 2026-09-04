@@ -23,6 +23,51 @@ function medidas(perfil: PerfilImpresora) {
   return { util, cuerpo: util / perfil.columnas / 0.6 };
 }
 
+/** Píxeles CSS por milímetro. */
+const PX_POR_MM = 96 / 25.4;
+
+const CLAVE_ALTO = 'adeo.impresora.altoJusto';
+
+/**
+ * Si la hoja se recorta al alto exacto del ticket.
+ *
+ * Apagado por defecto, y no por gusto: con un ticket corto la hoja queda más
+ * ancha que alta, y hay drivers que en ese caso la sacan acostada. El piso
+ * evita eso a cambio de unos centímetros de papel. Cuando en una impresora se
+ * comprueba que sale derecha igual, se prende y se deja de gastar.
+ */
+export function getAltoJusto() {
+  if (typeof localStorage === 'undefined') return false;
+  return localStorage.getItem(CLAVE_ALTO) === '1';
+}
+
+export function setAltoJusto(justo: boolean) {
+  if (typeof localStorage === 'undefined') return;
+  if (justo) localStorage.setItem(CLAVE_ALTO, '1');
+  else localStorage.removeItem(CLAVE_ALTO);
+}
+
+/**
+ * Fija el tamaño de la hoja al alto real del ticket.
+ *
+ * Con `size: 80mm auto`, Chrome no sabe qué alto darle y termina usando el
+ * papel por defecto del driver: de ahí el espacio que sobraba. Y hay una
+ * trampa peor: si la caja queda **más ancha que alta** —un ticket corto en
+ * papel de 80 mm— Chrome la toma como apaisada y saca el ticket acostado. Por
+ * eso el alto nunca baja del ancho: es lo que garantiza que salga vertical.
+ */
+function medirYFijarPagina(doc: Document, perfil: PerfilImpresora) {
+  const estilo = doc.getElementById('pagina');
+  if (!estilo) return;
+
+  const contenido = doc.body.scrollHeight / PX_POR_MM;
+  // Un poco de cola para que el driver no corte pegado a la última línea.
+  const pedido = contenido + 4;
+  const alto = getAltoJusto() ? pedido : Math.max(pedido, perfil.papelMm * 1.02);
+
+  estilo.textContent = `@page { size: ${perfil.papelMm}mm ${alto.toFixed(1)}mm; margin: 0 }`;
+}
+
 /**
  * Impresión por el driver del sistema.
  *
@@ -76,10 +121,12 @@ export class ImpresoraSistema implements Printer {
         return;
       }
 
+      // Fuera de pantalla pero con tamaño real: con ancho 0 el ticket no
+      // maqueta y no se puede medir cuánto papel va a ocupar.
       const marco = document.createElement('iframe');
       marco.setAttribute('aria-hidden', 'true');
       marco.style.cssText =
-        'position:fixed;width:0;height:0;border:0;left:-9999px;top:0';
+        `position:fixed;left:-9999px;top:0;border:0;width:${perfil.papelMm}mm;height:400mm`;
       document.body.appendChild(marco);
 
       let terminado = false;
@@ -102,8 +149,7 @@ export class ImpresoraSistema implements Printer {
 
       doc.open();
       doc.write(
-        `<!doctype html><html><head><meta charset="utf-8"><style>
-          @page { size: ${perfil.papelMm}mm auto; margin: 0 }
+        `<!doctype html><html><head><meta charset="utf-8"><style id="pagina"></style><style>
           html, body { margin: 0; padding: 0 }
           body { width: ${util}mm; margin: 0 auto }
           pre, img { margin: 0 }
@@ -118,6 +164,8 @@ export class ImpresoraSistema implements Printer {
         </style></head><body>${cuerpo}</body></html>`
       );
       doc.close();
+
+      medirYFijarPagina(doc, perfil);
 
       ventana.addEventListener('afterprint', limpiar);
 

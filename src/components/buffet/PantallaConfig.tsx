@@ -31,8 +31,10 @@ import {
   getPerfil,
   getPreferencia,
   getPuente,
+  getAltoJusto,
   getViaActiva,
   imprimirSeguro,
+  setAltoJusto,
   ordenAuto,
   reconectar,
   listarPerfiles,
@@ -48,6 +50,7 @@ import {
   diagnosticoBluetooth,
   diagnosticoUsb,
 } from '@/lib/printer/diagnostico';
+import { batKioskPrinting, nombreBat } from '@/lib/printer/acceso-directo';
 import { sincronizar } from '@/lib/buffet-sync';
 import { Shell } from './Shell';
 
@@ -76,6 +79,7 @@ function Config() {
   const [impresion, setImpresion] = useState<PreferenciaImpresora>('auto');
   const [perfil, setPerfilEstado] = useState<PerfilImpresora>(listarPerfiles()[0]);
   const [puente, setPuenteEstado] = useState('');
+  const [altoJusto, setAltoJustoEstado] = useState(false);
 
   const [nombre, setNombre] = useState('');
   const [precio, setPrecio] = useState('');
@@ -88,6 +92,7 @@ function Config() {
     setImpresion(getPreferencia());
     setPerfilEstado(getPerfil());
     setPuenteEstado(getPuente());
+    setAltoJustoEstado(getAltoJusto());
   }, []);
 
   useEffect(() => {
@@ -210,6 +215,31 @@ function Config() {
     setPrevia(null);
   }
 
+  /**
+   * Baja el .bat que abre Chrome sin diálogo de impresión. La bandera es de
+   * arranque del navegador, así que no hay forma de activarla desde acá.
+   */
+  function bajarAccesoDirecto() {
+    const url = `${window.location.origin}${PUESTOS[puesto].base}`;
+    const archivo = new File([batKioskPrinting(url)], nombreBat(PUESTOS[puesto].label), {
+      type: 'application/octet-stream',
+    });
+    const enlace = document.createElement('a');
+    enlace.href = URL.createObjectURL(archivo);
+    enlace.download = archivo.name;
+    enlace.click();
+    URL.revokeObjectURL(enlace.href);
+    setAviso(
+      'Bajado. Poné la impresora como predeterminada en Windows y abrí el ' +
+        'buffet con ese archivo: desde ahí el ticket sale sin preguntar.'
+    );
+  }
+
+  function cambiarAlto(justo: boolean) {
+    setAltoJusto(justo);
+    setAltoJustoEstado(justo);
+  }
+
   function guardarPuente(url: string) {
     setPuente(url);
     setPuenteEstado(url);
@@ -237,9 +267,10 @@ function Config() {
     }
     setAviso(
       via === 'sistema'
-        ? 'Listo, imprime por el driver del sistema. Chrome va a preguntar en ' +
-            'cada ticket; para que salga solo, abrí Chrome con --kiosk-printing.'
-        : `Listo, imprime por ${TRANSPORTES[via!].label}. Salió un ticket de prueba.`
+        ? 'Listo, imprime por el driver del sistema. Por esta vía Chrome ' +
+            'pregunta en cada ticket: bajá "Acceso directo sin diálogo" y abrí ' +
+            'el buffet desde ahí. Por Puerto COM sale solo sin nada de eso.'
+        : `Listo, imprime por ${TRANSPORTES[via!].label} y sale solo, sin preguntar.`
     );
   }
 
@@ -366,6 +397,23 @@ function Config() {
           Conectar impresora e imprimir prueba
         </button>
 
+        <label className="flex items-start gap-2.5 rounded-lg bg-panel-850 px-3 py-2.5">
+          <input
+            type="checkbox"
+            checked={altoJusto}
+            onChange={(e) => cambiarAlto(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-adeo-rojo"
+          />
+          <span className="text-xs text-zinc-400">
+            <span className="block font-medium text-zinc-200">
+              Recortar el papel al alto del ticket
+            </span>
+            Gasta menos, pero con tickets cortos hay impresoras que los sacan
+            acostados. Prendelo, imprimí una prueba, y si sale derecha dejalo
+            así. Sólo afecta al driver del sistema.
+          </span>
+        </label>
+
         <details className="rounded-lg bg-panel-850 px-3 py-2">
           <summary className="cursor-pointer text-xs text-zinc-400">
             Elegir la conexión a mano
@@ -457,6 +505,13 @@ function Config() {
             className="btn-ghost h-14"
           >
             Probar impresión
+          </button>
+          <button
+            type="button"
+            onClick={bajarAccesoDirecto}
+            className="btn-ghost h-14"
+          >
+            Acceso directo sin diálogo
           </button>
           <button
             type="button"

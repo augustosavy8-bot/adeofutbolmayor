@@ -21,6 +21,7 @@ export {
   type PerfilImpresora,
 } from './perfiles';
 export { getPuente, setPuente } from './red';
+export { getAltoJusto, setAltoJusto } from './sistema';
 export { ordenAuto } from './perfiles';
 
 export const TRANSPORTES: Record<
