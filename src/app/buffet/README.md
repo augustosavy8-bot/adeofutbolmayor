@@ -268,7 +268,75 @@ alto del ticket** saca ese piso y la hoja se pega al contenido (38 → 42 mm).
 
 ---
 
-## 3. Cierre de caja
+## 3. Tickets de diseño
+
+La pestaña **Tickets** imprime las fichas que se le dan al que compra para que
+las canjee. Se elige la cantidad y se toca el tipo.
+
+Son seis, tres por puesto:
+
+| Boletería | Buffet |
+|---|---|
+| ENTRADA GENERAL | CHORIPÁN |
+| ENTRADA SOCIO | HAMBURGUESA |
+| MENOR Y JUBILADO | BEBIDA |
+
+**No llevan precio, fecha, numeración ni QR**: sólo el club, el subtítulo del
+encabezado y el tipo, centrados, con la regla entre medio. Todo en negro puro
+sobre blanco, sin grises ni fondos llenos, porque la térmica los mancha. Al
+final quedan 8 mm libres antes del corte.
+
+### Agregar o cambiar un tipo
+
+Todo vive en `src/lib/tickets/diseno.ts`. Entre un ticket y otro no cambia nada
+más que el texto del tipo y el subtítulo, así que sumar uno es sumar una
+entrada a `TIPOS`:
+
+```ts
+{
+  id: 'pancho',
+  label: 'Pancho',
+  subtitulo: 'BUFFET',
+  lineas: ['Pancho'],   // un renglón por línea impresa
+  estilo: 'buffet',     // 'entrada' usa letra más grande para el club
+  puesto: 'buffet',
+}
+```
+
+`lineas` es un arreglo y no una cadena a propósito: las entradas se parten en
+dos renglones por diseño (`Entrada` / `general`), y dejarlo al ajuste
+automático cambiaría dónde corta.
+
+Las medidas (cuerpos, interletrado, la regla, los márgenes) están en el mismo
+archivo, en los px del diseño original sobre un área de 272 px = 72 mm, para
+que comparar contra el handoff sea directo.
+
+### Cómo se imprime cada una
+
+El mismo diseño sale por las dos vías, y cada una lo resuelve como puede:
+
+- **Driver del sistema:** va como HTML, que es la única vía con tipografías de
+  verdad. Sale con Archivo Narrow y Courier Prime.
+- **USB, COM, Bluetooth y red:** esas impresoras sólo tienen su fuente interna,
+  así que el ticket se dibuja en un canvas y se manda como imagen. Sale igual.
+
+Las tipografías están **en el proyecto** (`public/fonts/`), no en Google Fonts:
+el puesto tiene que imprimir sin wifi, y un pedido a fonts.googleapis.com
+dejaría el ticket con otra letra justo cuando no hay conexión. Si aun así no
+cargan, el ticket sale con la condensada y la monoespaciada del sistema en vez
+de no salir.
+
+> En 58 mm el diseño se achica al ancho real de esa impresora (48 mm de los
+> 72), que da ~67 % y no el 72 % que sugiere el handoff: con 72 % no entraría
+> en el papel.
+
+> Estas fichas **no reemplazan** el ticket de la venta ni el de la entrada, que
+> siguen llevando precio, fecha y número porque son los que respaldan el
+> arqueo.
+
+---
+
+## 4. Cierre de caja
 
 Al abrir turno se carga el **fondo inicial**: la plata con la que arranca la
 caja. Se usa para el arqueo.
@@ -296,7 +364,7 @@ Al cerrar, la app vuelve al login e intenta sincronizar.
 
 ---
 
-## 4. Sincronización
+## 5. Sincronización
 
 Sube `buffet_turnos` y `buffet_ventas`, y baja el catálogo desde
 `buffet_productos`. Los id se generan en la tablet, así que subir dos veces lo
@@ -352,6 +420,7 @@ opcional: sirve para tener los datos en el servidor, no para operar.
 | Cálculo del arqueo | `src/lib/buffet/cierre.ts` |
 | Armado de tickets (texto) | `src/lib/buffet/ticket.ts` |
 | Impresoras (perfiles y transportes) | `src/lib/printer/` |
+| Tickets de diseño (los seis tipos) | `src/lib/tickets/` |
 | Sincronización | `src/lib/buffet-sync.ts` |
 | Pantallas | `src/components/buffet/` |
 | Rutas | `src/app/buffet/` y `src/app/entrada/` |

@@ -59,6 +59,19 @@ export const PERFILES: Record<PerfilId, PerfilImpresora> = {
   },
 };
 
+/** Resolución de las térmicas de rollo. Las dos del club son de 203 dpi. */
+export const DPI_TERMICA = 203;
+
+/**
+ * Ancho imprimible real, deducido de los puntos del cabezal. Sale de ahí y no
+ * del papel para que el ticket de diseño mida lo mismo por las dos vías: la
+ * imagen que se manda por ESC/POS tiene exactamente `anchoPx` puntos, así que
+ * el HTML del driver tiene que ocupar los milímetros que esos puntos cubren.
+ */
+export function anchoImprimibleMm(perfil: PerfilImpresora) {
+  return (perfil.anchoPx / DPI_TERMICA) * 25.4;
+}
+
 const CLAVE = 'adeo.impresora.perfil';
 
 export function getPerfil(): PerfilImpresora {

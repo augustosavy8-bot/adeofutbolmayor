@@ -7,6 +7,8 @@ import { ImpresoraWebSerial } from './serial';
 import { ImpresoraWebUSB } from './webusb';
 import { getPerfil, ordenAuto, type PerfilImpresora } from './perfiles';
 import { ImpresoraNoDisponible, type Printer, type Transporte } from './tipos';
+import type { TipoTicket } from '@/lib/tickets/diseno';
+import type { OpcionesFicha } from '@/lib/tickets/render';
 
 export { ImpresoraNoDisponible };
 export type { Printer, EstadoImpresora, Transporte } from './tipos';
@@ -171,13 +173,38 @@ let cola: Promise<unknown> = Promise.resolve();
  * promesa y mostrar el aviso cuando resuelva.
  */
 export function imprimirSeguro(lineas: string[]): Promise<ResultadoImpresion> {
-  const tarea = cola.then(() => imprimirAhora(lineas));
+  return encolar((p, perfil) => p.imprimir(lineas, perfil));
+}
+
+/**
+ * Una ficha de diseño, tantas veces como se pidan. Van encoladas igual que
+ * todo lo demás: dos envíos solapados sobre la misma impresora salen mezclados
+ * en el papel.
+ */
+export function imprimirFichas(
+  tipo: TipoTicket,
+  opciones: OpcionesFicha,
+  cantidad = 1
+): Promise<ResultadoImpresion> {
+  return encolar(async (p, perfil) => {
+    for (let i = 0; i < cantidad; i++) {
+      await p.imprimirFicha(tipo, opciones, perfil);
+    }
+  });
+}
+
+function encolar(
+  hacer: (p: Printer, perfil: PerfilImpresora) => Promise<void>
+): Promise<ResultadoImpresion> {
+  const tarea = cola.then(() => imprimirAhora(hacer));
   // La cola sobrevive a un ticket fallido: el siguiente igual se intenta.
   cola = tarea.catch(() => undefined);
   return tarea;
 }
 
-async function imprimirAhora(lineas: string[]): Promise<ResultadoImpresion> {
+async function imprimirAhora(
+  hacer: (p: Printer, perfil: PerfilImpresora) => Promise<void>
+): Promise<ResultadoImpresion> {
   const perfil = getPerfil();
   try {
     const p = await resolver(perfil);
@@ -188,7 +215,7 @@ async function imprimirAhora(lineas: string[]): Promise<ResultadoImpresion> {
           'La impresora no está conectada. Elegí cómo conectarla en Configuración.',
       };
     }
-    await p.imprimir(lineas, perfil);
+    await hacer(p, perfil);
     return { ok: true };
   } catch (e) {
     // Si falló en pleno uso, la próxima vuelve a buscar en vez de insistir con

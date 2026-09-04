@@ -1,3 +1,38 @@
+/*
+ * Las del diseño de los tickets. Van servidas desde el proyecto y no desde
+ * Google Fonts porque el puesto de venta tiene que imprimir sin wifi: un
+ * @import a fonts.googleapis.com dejaría el ticket con otra tipografía justo
+ * cuando no hay conexión.
+ */
+@font-face {
+  font-family: 'Archivo Narrow';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/archivo-narrow-400.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Archivo Narrow';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('/fonts/archivo-narrow-700.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Courier Prime';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/courier-prime-400.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Courier Prime';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('/fonts/courier-prime-700.ttf') format('truetype');
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

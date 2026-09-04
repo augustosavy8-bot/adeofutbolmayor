@@ -1,6 +1,8 @@
 'use client';
 
-import type { PerfilImpresora } from './perfiles';
+import type { TipoTicket } from '@/lib/tickets/diseno';
+import { htmlFicha, type OpcionesFicha } from '@/lib/tickets/render';
+import { anchoImprimibleMm, type PerfilImpresora } from './perfiles';
 import {
   ImpresoraNoDisponible,
   type EstadoImpresora,
@@ -102,6 +104,20 @@ export class ImpresoraSistema implements Printer {
     await this.imprimirDocumento(`<pre>${texto}</pre>`, perfil);
   }
 
+  /**
+   * Por esta vía la ficha va como HTML y no como imagen: es la única con
+   * tipografías de verdad, así que el diseño sale con su letra en lugar de
+   * rasterizado.
+   */
+  async imprimirFicha(
+    tipo: TipoTicket,
+    opciones: OpcionesFicha,
+    perfil: PerfilImpresora
+  ) {
+    const ancho = anchoImprimibleMm(perfil);
+    await this.imprimirDocumento(htmlFicha(tipo, opciones, ancho), perfil, ancho);
+  }
+
   async imprimirImagen(canvas: HTMLCanvasElement, perfil: PerfilImpresora) {
     await this.imprimirDocumento(
       `<img src="${canvas.toDataURL('image/png')}" alt="">`,
@@ -114,7 +130,11 @@ export class ImpresoraSistema implements Printer {
    * venta: si se imprimiera la ventana, el cajero vería desaparecer la caja
    * mientras sale el papel.
    */
-  private imprimirDocumento(cuerpo: string, perfil: PerfilImpresora) {
+  private imprimirDocumento(
+    cuerpo: string,
+    perfil: PerfilImpresora,
+    anchoMm?: number
+  ) {
     return new Promise<void>((resolver, rechazar) => {
       if (typeof document === 'undefined') {
         rechazar(new ImpresoraNoDisponible('No hay ventana para imprimir.'));
@@ -146,12 +166,13 @@ export class ImpresoraSistema implements Printer {
       }
 
       const { util, cuerpo: tamano } = medidas(perfil);
+      const ancho = anchoMm ?? util;
 
       doc.open();
       doc.write(
         `<!doctype html><html><head><meta charset="utf-8"><style id="pagina"></style><style>
           html, body { margin: 0; padding: 0 }
-          body { width: ${util}mm; margin: 0 auto }
+          body { width: ${ancho}mm; margin: 0 auto }
           pre, img { margin: 0 }
           pre {
             font-family: "Consolas", "Courier New", monospace;

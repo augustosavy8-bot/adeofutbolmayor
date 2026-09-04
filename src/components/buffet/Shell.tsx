@@ -6,9 +6,10 @@ import { useEffect, useState } from 'react';
 import { PUESTOS } from '@/db/buffet';
 import { useSesion } from '@/lib/buffet/estado';
 
-/** Las mismas cuatro pantallas para los dos puestos, colgadas de su base. */
+/** Las mismas pantallas para los dos puestos, colgadas de su base. */
 const navDe = (base: string) => [
   { href: base, label: 'Venta' },
+  { href: `${base}/tickets`, label: 'Tickets' },
   { href: `${base}/ventas`, label: 'Ventas' },
   { href: `${base}/cierre`, label: 'Cierre' },
   { href: `${base}/config`, label: 'Config' },
@@ -78,11 +79,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-panel-700 bg-panel-900 px-3">
-        <p className="min-w-0 shrink truncate text-sm font-bold">
+        {/* En celulares angostos el nombre del puesto se va: son cinco
+            pestañas y lo que se toca son ellas, no el título. */}
+        <p className="hidden min-w-0 shrink truncate text-sm font-bold sm:block">
           {PUESTOS[puesto].label} <span className="text-adeo-rojo">ADEO</span>
         </p>
 
-        <nav className="flex min-w-0 flex-1 justify-center gap-0.5 sm:gap-1">
+        {/* Si aun así no entran, la barra se desliza en vez de empujar la
+            página entera a lo ancho. */}
+        <nav className="flex min-w-0 flex-1 justify-start gap-0.5 overflow-x-auto sm:justify-center sm:gap-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {navDe(base).map((item) => (
             <Link
               key={item.href}

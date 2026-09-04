@@ -1,5 +1,7 @@
 'use client';
 
+import { dibujarFicha, type OpcionesFicha } from '@/lib/tickets/render';
+import type { TipoTicket } from '@/lib/tickets/diseno';
 import { CMD, codificar, rasterDesdeCanvas, unir } from './escpos';
 import type { PerfilImpresora } from './perfiles';
 import type { EstadoImpresora, Printer } from './tipos';
@@ -31,6 +33,18 @@ export abstract class ImpresoraEscPos implements Printer {
       unir(CMD.init(), rasterDesdeCanvas(canvas), this.cierre(perfil)),
       perfil
     );
+  }
+
+  /**
+   * La ficha va como imagen: estas impresoras sólo tienen su fuente interna, y
+   * el diseño depende de tipografías propias y de tamaños que ESC/POS no da.
+   */
+  async imprimirFicha(
+    tipo: TipoTicket,
+    opciones: OpcionesFicha,
+    perfil: PerfilImpresora
+  ) {
+    await this.imprimirImagen(dibujarFicha(tipo, perfil.anchoPx, opciones), perfil);
   }
 
   /**

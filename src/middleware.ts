@@ -16,11 +16,15 @@ export const config = {
      * van afuera porque son los archivos de las PWA: si el middleware los
      * redirigiera al login, no instalarían ni abrirían sin conexión.
      *
+     * `fonts/` son las tipografías de los tickets. Con el middleware puesto
+     * pagarían una vuelta a Supabase por archivo y, peor, terminarían
+     * redirigidas al login: el ticket saldría con otra letra.
+     *
      * `api/print` es el puente a la impresora de red: pedirle sesión de
      * Supabase le sumaría una vuelta a internet a cada ticket, justo cuando
      * tiene que salir instantáneo. Lo que lo protege es que sólo acepta
      * direcciones de red local y puertos de impresora.
      */
-    '/((?!_next/static|_next/image|favicon.ico|adeo-logo.png|buffet|entrada|api/print|sw.js|manifest-buffet.webmanifest|manifest-entrada.webmanifest|icons/|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|adeo-logo.png|buffet|entrada|api/print|fonts/|sw.js|manifest-buffet.webmanifest|manifest-entrada.webmanifest|icons/|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

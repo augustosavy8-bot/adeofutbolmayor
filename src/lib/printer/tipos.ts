@@ -1,4 +1,6 @@
 import type { PerfilImpresora } from './perfiles';
+import type { TipoTicket } from '@/lib/tickets/diseno';
+import type { OpcionesFicha } from '@/lib/tickets/render';
 
 export type EstadoImpresora = 'sin-soporte' | 'desconectada' | 'conectada';
 
@@ -31,6 +33,16 @@ export interface Printer {
   reconnect(): Promise<boolean>;
   /** Imprime el ticket entero: texto, avance y corte según el perfil. */
   imprimir(lineas: string[], perfil: PerfilImpresora): Promise<void>;
+  /**
+   * Imprime una ficha de diseño. Va aparte de `imprimir` porque no es texto en
+   * columnas: tiene tipografía y medidas propias, y cada transporte la resuelve
+   * como puede — el driver del sistema con HTML, las ESC/POS como imagen.
+   */
+  imprimirFicha(
+    tipo: TipoTicket,
+    opciones: OpcionesFicha,
+    perfil: PerfilImpresora
+  ): Promise<void>;
 }
 
 /** La impresora nunca puede frenar un cobro: los errores se avisan, no rompen. */
