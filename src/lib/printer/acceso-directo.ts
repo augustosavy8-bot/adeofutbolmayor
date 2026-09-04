@@ -45,3 +45,19 @@ export function batKioskPrinting(url: string) {
 export function nombreBat(puesto: string) {
   return `Buffet ADEO - ${puesto} (sin dialogo).bat`;
 }
+
+/**
+ * El "Destino" de un acceso directo de Windows, para pegar a mano.
+ *
+ * Existe porque Chrome marca los .bat como archivo peligroso y a veces
+ * directamente no los deja bajar. Copiar texto no lo puede bloquear nadie, así
+ * que esta es la vía que siempre está disponible.
+ */
+export function destinoAccesoDirecto(url: string) {
+  return (
+    '"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" ' +
+    '--kiosk-printing ' +
+    '--user-data-dir="%LocalAppData%\\AdeoBuffet" ' +
+    `--app="${url}"`
+  );
+}

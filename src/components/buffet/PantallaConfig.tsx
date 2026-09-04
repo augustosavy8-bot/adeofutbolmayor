@@ -33,6 +33,7 @@ import {
   getPuente,
   getAltoJusto,
   getViaActiva,
+  pareceDialogo,
   imprimirSeguro,
   setAltoJusto,
   ordenAuto,
@@ -50,7 +51,11 @@ import {
   diagnosticoBluetooth,
   diagnosticoUsb,
 } from '@/lib/printer/diagnostico';
-import { batKioskPrinting, nombreBat } from '@/lib/printer/acceso-directo';
+import {
+  batKioskPrinting,
+  destinoAccesoDirecto,
+  nombreBat,
+} from '@/lib/printer/acceso-directo';
 import { sincronizar } from '@/lib/buffet-sync';
 import { Shell } from './Shell';
 
@@ -80,6 +85,8 @@ function Config() {
   const [perfil, setPerfilEstado] = useState<PerfilImpresora>(listarPerfiles()[0]);
   const [puente, setPuenteEstado] = useState('');
   const [altoJusto, setAltoJustoEstado] = useState(false);
+  const [preguntó, setPreguntó] = useState(false);
+  const [destino, setDestino] = useState('');
 
   const [nombre, setNombre] = useState('');
   const [precio, setPrecio] = useState('');
@@ -93,7 +100,8 @@ function Config() {
     setPerfilEstado(getPerfil());
     setPuenteEstado(getPuente());
     setAltoJustoEstado(getAltoJusto());
-  }, []);
+    setDestino(destinoAccesoDirecto(`${window.location.origin}${PUESTOS[puesto].base}`));
+  }, [puesto]);
 
   useEffect(() => {
     if (!aviso) return;
@@ -261,6 +269,7 @@ function Config() {
 
     const via = getViaActiva();
     const r = await imprimirSeguro(ticketPrueba());
+    setPreguntó(pareceDialogo());
     if (!r.ok) {
       setAviso(r.motivo);
       return;
@@ -305,7 +314,17 @@ function Config() {
   async function probarImpresion() {
     setAviso('Imprimiendo prueba…');
     const r = await imprimirSeguro(ticketPrueba());
+    setPreguntó(pareceDialogo());
     setAviso(r.ok ? 'Salió el ticket de prueba.' : r.motivo);
+  }
+
+  async function copiar(texto: string, queCosa: string) {
+    try {
+      await navigator.clipboard.writeText(texto);
+      setAviso(`${queCosa} copiado.`);
+    } catch {
+      setAviso('No se pudo copiar. Seleccionalo y copialo a mano.');
+    }
   }
 
   async function sincronizarAhora() {
@@ -396,6 +415,70 @@ function Config() {
         >
           Conectar impresora e imprimir prueba
         </button>
+
+        {/* Sólo aparece cuando el diálogo realmente apareció: si el ticket ya
+            sale solo, este bloque es ruido. */}
+        {preguntó && (
+          <div className="space-y-2.5 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+            <p className="text-sm font-semibold text-amber-300">
+              Chrome está preguntando en cada ticket
+            </p>
+            <p className="text-xs text-zinc-400">
+              No se puede apagar desde la página: es una opción con la que hay
+              que abrir Chrome. Una vez y queda.
+            </p>
+
+            <ol className="list-decimal space-y-1.5 pl-4 text-xs text-zinc-400">
+              <li>
+                Poné la impresora como <b>predeterminada</b> en Windows
+                (Configuración → Bluetooth y dispositivos → Impresoras).
+              </li>
+              <li>
+                Botón derecho en el escritorio → <b>Nuevo</b> →{' '}
+                <b>Acceso directo</b>.
+              </li>
+              <li>Pegá esto como ubicación:</li>
+            </ol>
+
+            <div className="rounded-lg bg-panel-950 p-2">
+              <code className="block break-all font-mono text-[11px] leading-relaxed text-zinc-300">
+                {destino}
+              </code>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void copiar(destino, 'El acceso directo')}
+                className="h-10 rounded-lg bg-adeo-rojo px-3 text-xs font-semibold text-white"
+              >
+                Copiar
+              </button>
+              <button
+                type="button"
+                onClick={bajarAccesoDirecto}
+                className="btn-ghost h-10 px-3 text-xs"
+              >
+                Bajarlo como archivo
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreguntó(false)}
+                className="h-10 px-3 text-xs text-zinc-500"
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <p className="text-[11px] text-zinc-500">
+              Chrome marca los .bat como peligrosos y a veces no los deja bajar;
+              por eso está el texto para copiar. Abrí el buffet desde ese acceso
+              directo y el ticket sale solo. Ojo: usa un perfil aparte, así que
+              los cajeros hay que crearlos ahí. La alternativa sin nada de esto
+              es conectar por <b>Puerto COM</b>, que imprime en silencio.
+            </p>
+          </div>
+        )}
 
         <label className="flex items-start gap-2.5 rounded-lg bg-panel-850 px-3 py-2.5">
           <input

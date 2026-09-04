@@ -230,12 +230,22 @@ quiera.
 Le manda el ticket al driver como documento, igual que cualquier programa de
 escritorio. No hay nada que emparejar: elegilo en **Config** y listo.
 
-El costo es que Chrome pregunta en cada ticket. Para que salga solo:
+El costo es que Chrome pregunta en cada ticket. **No se puede apagar desde la
+página**: no hay ninguna API de navegador para saltear ese diálogo. Es una
+bandera con la que hay que abrir Chrome.
 
-1. **Config → Acceso directo sin diálogo** baja un `.bat` ya armado con la
-   dirección de esta instalación. Abrí el buffet desde ese archivo.
-2. Dejá la impresora como **predeterminada** de Windows: `--kiosk-printing`
+La app se da cuenta sola de que está pasando —mide cuánto tarda la impresión en
+volver: en directo vuelve enseguida, con el diálogo abierto vuelve recién
+cuando alguien lo toca— y muestra los pasos con el texto listo para copiar:
+
+1. Poné la impresora como **predeterminada** de Windows: `--kiosk-printing`
    manda el ticket ahí sin preguntar.
+2. Creá un acceso directo en el escritorio y pegá como ubicación el texto que
+   da **Config** (botón **Copiar**). Abrí el buffet desde ahí.
+
+> Se ofrece el texto para copiar y no sólo el `.bat` porque **Chrome marca los
+> `.bat` como archivo peligroso** y a veces directamente no los deja bajar.
+> Copiar texto no lo bloquea nadie.
 
 El `.bat` abre Chrome con un **perfil propio** (`--user-data-dir`), y eso no es
 un adorno: si Chrome ya está abierto, una ventana nueva se engancha al proceso

@@ -31,6 +31,28 @@ const PX_POR_MM = 96 / 25.4;
 const CLAVE_ALTO = 'adeo.impresora.altoJusto';
 
 /**
+ * Cuánto tardó la última impresión en volver, y si eso parece un diálogo.
+ *
+ * No hay forma de preguntarle al navegador si está en modo `--kiosk-printing`.
+ * Pero sí se puede medir: en modo directo `afterprint` vuelve enseguida, y con
+ * el diálogo abierto vuelve recién cuando la persona toca Imprimir. Un ticket
+ * que tardó varios segundos es, casi seguro, un diálogo esperando.
+ *
+ * Es una pista, no un veredicto: sólo sirve para ofrecer ayuda, nunca para
+ * frenar una impresión.
+ */
+const UMBRAL_DIALOGO_MS = 1500;
+let ultimaDemoraMs: number | null = null;
+
+export function pareceDialogo() {
+  return ultimaDemoraMs !== null && ultimaDemoraMs > UMBRAL_DIALOGO_MS;
+}
+
+export function demoraUltimaImpresion() {
+  return ultimaDemoraMs;
+}
+
+/**
  * Si la hoja se recorta al alto exacto del ticket.
  *
  * Apagado por defecto, y no por gusto: con un ticket corto la hoja queda más
@@ -150,9 +172,11 @@ export class ImpresoraSistema implements Printer {
       document.body.appendChild(marco);
 
       let terminado = false;
+      let mandadoEn = 0;
       const limpiar = () => {
         if (terminado) return;
         terminado = true;
+        if (mandadoEn) ultimaDemoraMs = performance.now() - mandadoEn;
         marco.remove();
         resolver();
       };
@@ -200,6 +224,7 @@ export class ImpresoraSistema implements Printer {
       setTimeout(() => {
         try {
           ventana.focus();
+          mandadoEn = performance.now();
           ventana.print();
         } catch (e) {
           marco.remove();
