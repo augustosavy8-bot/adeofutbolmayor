@@ -28,11 +28,13 @@ function explicar(e: unknown) {
   const crudo = e instanceof Error ? e.message : String(e);
 
   if (/access denied|acceso denegado/i.test(crudo)) {
+    // En Windows y Mac esto no es una falla que se pueda arreglar: el sistema
+    // toma la impresora al enchufarla y no la suelta. Decirlo como catástrofe
+    // asusta al pedo cuando al lado hay dos vías que sí funcionan.
     return new ImpresoraNoDisponible(
-      'El sistema operativo tomó la impresora con su propio driver apenas la ' +
-        'enchufaste, y el navegador no puede usar una impresora ya tomada. No ' +
-        'depende de instalar ni desinstalar nada: en Windows y Mac pasa ' +
-        'siempre. Probá desde la tablet Android, que es donde no pasa.'
+      'En Windows y Mac el USB directo no se puede usar: el sistema toma la ' +
+        'impresora al enchufarla. Elegí "Puerto COM" o "Driver del sistema", ' +
+        'que imprimen igual. El USB directo es para la tablet Android.'
     );
   }
   if (/no device selected|cancel/i.test(crudo)) {

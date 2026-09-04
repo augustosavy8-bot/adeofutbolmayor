@@ -31,7 +31,10 @@ import {
   getPerfil,
   getPreferencia,
   getPuente,
+  getViaActiva,
   imprimirSeguro,
+  ordenAuto,
+  reconectar,
   listarPerfiles,
   setPerfil,
   setPreferencia,
@@ -213,6 +216,34 @@ function Config() {
   }
 
   /**
+   * Busca sola una conexión que sirva y dice cuál quedó. Es el botón que
+   * tendría que alcanzar: el que configura no tiene por qué saber la
+   * diferencia entre USB, COM y el driver del sistema.
+   */
+  async function conectarSola() {
+    setAviso('Buscando la impresora…');
+    elegirImpresion('auto');
+
+    if (!(await reconectar())) {
+      setAviso('No se encontró ninguna forma de imprimir en este aparato.');
+      return;
+    }
+
+    const via = getViaActiva();
+    const r = await imprimirSeguro(ticketPrueba());
+    if (!r.ok) {
+      setAviso(r.motivo);
+      return;
+    }
+    setAviso(
+      via === 'sistema'
+        ? 'Listo, imprime por el driver del sistema. Chrome va a preguntar en ' +
+            'cada ticket; para que salga solo, abrí Chrome con --kiosk-printing.'
+        : `Listo, imprime por ${TRANSPORTES[via!].label}. Salió un ticket de prueba.`
+    );
+  }
+
+  /**
    * Muestra lo que el navegador ve de la impresora. Sin esto, "no conecta" es
    * indistinguible entre cinco causas y no hay forma de saber cuál tocó.
    */
@@ -327,11 +358,20 @@ function Config() {
           ))}
         </div>
 
-        <h3 className="pt-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          Cómo conectarla
-        </h3>
+        <button
+          type="button"
+          onClick={() => void conectarSola()}
+          className="h-14 w-full rounded-lg bg-adeo-rojo text-sm font-semibold text-white"
+        >
+          Conectar impresora e imprimir prueba
+        </button>
 
-        <div className="space-y-2">
+        <details className="rounded-lg bg-panel-850 px-3 py-2">
+          <summary className="cursor-pointer text-xs text-zinc-400">
+            Elegir la conexión a mano
+          </summary>
+
+          <div className="mt-3 space-y-2">
           <button
             type="button"
             onClick={() => elegirImpresion('auto')}
@@ -346,12 +386,7 @@ function Config() {
               Automático
             </span>
             <span className="block text-xs text-zinc-400">
-              Prueba{' '}
-              {perfil.transportes
-                .filter((t) => t !== 'sistema')
-                .map((t) => TRANSPORTES[t].label)
-                .join(', ')}
-              .
+              Prueba {ordenAuto(perfil).map((t) => TRANSPORTES[t].label).join(', ')}.
             </span>
           </button>
 
@@ -412,7 +447,8 @@ function Config() {
               )}
             </div>
           ))}
-        </div>
+          </div>
+        </details>
 
         <div className="grid gap-2 sm:grid-cols-3">
           <button

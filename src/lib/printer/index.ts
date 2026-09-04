@@ -5,7 +5,7 @@ import { ImpresoraRed } from './red';
 import { ImpresoraSistema } from './sistema';
 import { ImpresoraWebSerial } from './serial';
 import { ImpresoraWebUSB } from './webusb';
-import { getPerfil, type PerfilImpresora } from './perfiles';
+import { getPerfil, ordenAuto, type PerfilImpresora } from './perfiles';
 import { ImpresoraNoDisponible, type Printer, type Transporte } from './tipos';
 
 export { ImpresoraNoDisponible };
@@ -21,6 +21,7 @@ export {
   type PerfilImpresora,
 } from './perfiles';
 export { getPuente, setPuente } from './red';
+export { ordenAuto } from './perfiles';
 
 export const TRANSPORTES: Record<
   Transporte,
@@ -70,6 +71,7 @@ export function setPreferencia(p: PreferenciaImpresora) {
   if (p === 'auto') localStorage.removeItem(CLAVE);
   else localStorage.setItem(CLAVE, p);
   elegida = null;
+  viaElegida = null;
 }
 
 /**
@@ -99,30 +101,38 @@ export function impresoraDe(t: Transporte): Printer {
 /** Última que respondió, para no reintentar el orden completo en cada venta. */
 let elegida: Printer | null = null;
 
+/** Por qué vía está imprimiendo, para poder decírselo al que configura. */
+let viaElegida: Transporte | null = null;
+
+export function getViaActiva() {
+  return viaElegida;
+}
+
 /**
- * En automático se prueban los transportes del perfil, salvo el driver del
- * sistema: como nunca falla, ganaría siempre y abriría un diálogo que el
- * cajero no pidió. Ese hay que elegirlo a mano.
+ * En automático se prueban las conexiones del perfil en el orden que conviene
+ * a esta plataforma (ver `ordenAuto`), terminando siempre en el driver del
+ * sistema. Antes el driver quedaba afuera y el resultado era que en una
+ * computadora no imprimía nada: las otras vías necesitan emparejar algo, y si
+ * no se había emparejado no quedaba ninguna.
  */
 async function resolver(perfil: PerfilImpresora): Promise<Printer | null> {
   if (elegida && elegida.estado === 'conectada') return elegida;
 
   const preferencia = getPreferencia();
-  const candidatos =
-    preferencia === 'auto'
-      ? perfil.transportes.filter((t) => t !== 'sistema')
-      : [preferencia];
+  const candidatos = preferencia === 'auto' ? ordenAuto(perfil) : [preferencia];
 
   for (const t of candidatos) {
     const p = impresoraDe(t);
     if (p.estado === 'sin-soporte') continue;
     if (p.estado === 'conectada' || (await p.reconnect())) {
       elegida = p;
+      viaElegida = t;
       return p;
     }
   }
 
   elegida = null;
+  viaElegida = null;
   return null;
 }
 
@@ -139,6 +149,7 @@ export async function conectar(t: Transporte) {
   const p = impresoraDe(t);
   await p.connect();
   elegida = p;
+  viaElegida = t;
   return p;
 }
 
@@ -182,6 +193,7 @@ async function imprimirAhora(lineas: string[]): Promise<ResultadoImpresion> {
     // Si falló en pleno uso, la próxima vuelve a buscar en vez de insistir con
     // una conexión que ya se cayó.
     elegida = null;
+    viaElegida = null;
     const motivo =
       e instanceof Error ? e.message : 'Falló la impresión por un error desconocido.';
     console.error('Impresión fallida', e);

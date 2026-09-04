@@ -84,3 +84,33 @@ export function listarPerfiles(): PerfilImpresora[] {
 export function columnasActivas() {
   return getPerfil().columnas;
 }
+
+/**
+ * En qué orden probar las conexiones cuando está en automático.
+ *
+ * El orden depende de la plataforma porque lo que anda en una no anda en la
+ * otra: en Android el USB es directo y en Windows lo toma el sistema, así que
+ * ahí conviene arrancar por el puerto COM.
+ *
+ * El driver del sistema va **último**, y sólo en computadora. Último porque
+ * nunca falla: puesto antes ganaría siempre y abriría un diálogo teniendo al
+ * lado una conexión que imprime sola. Y sólo en computadora porque ahí el
+ * diálogo sale con la impresora predeterminada ya elegida y termina en papel,
+ * mientras que en Android arranca en "Guardar como PDF": el cajero tendría un
+ * diálogo confuso en cada venta y ningún ticket. En la tablet, si no hay nada
+ * emparejado, es mejor avisar.
+ *
+ * `red` queda afuera del automático: hay que saber la IP de la impresora y
+ * levantar el puente, así que es una elección deliberada, no algo que se
+ * adivine. Además sondearla costaría segundos en cada arranque.
+ */
+export function ordenAuto(perfil: PerfilImpresora): Transporte[] {
+  const ua = typeof navigator === 'undefined' ? '' : navigator.userAgent;
+  const android = /Android/i.test(ua);
+
+  const preferencia: Transporte[] = android
+    ? ['usb', 'bluetooth', 'serie']
+    : ['serie', 'usb', 'bluetooth', 'sistema'];
+
+  return preferencia.filter((t) => perfil.transportes.includes(t));
+}

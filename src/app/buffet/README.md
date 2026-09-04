@@ -99,8 +99,24 @@ aviso de que no se pudo imprimir, pero nunca se traba el cobro.
 | **Red** (puerto 9100) | XP-80 con cable de red | No |
 | **Driver del sistema** | Cualquier PC con la impresora instalada | Sí (se saca) |
 
-En **Automático** se prueban las del perfil salvo el driver del sistema, que
-hay que elegir a mano porque es el único que abre un diálogo.
+**Lo normal es no elegir nada:** el botón **Conectar impresora e imprimir
+prueba** busca solo y saca un ticket. Recién si eso falla hace falta abrir
+"Elegir la conexión a mano".
+
+En **Automático** el orden depende de la plataforma, porque lo que anda en una
+no anda en la otra:
+
+- **En computadora:** Puerto COM → USB → Bluetooth → **driver del sistema**.
+  El driver va último y siempre: nunca falla, así que garantiza el ticket, pero
+  puesto antes ganaría siempre y abriría un diálogo teniendo al lado una
+  conexión que imprime sola.
+- **En la tablet Android:** USB → Bluetooth → Puerto COM, **sin** el driver del
+  sistema. Ahí el diálogo de Chrome arranca en "Guardar como PDF": el cajero
+  tendría un diálogo confuso en cada venta y ningún ticket. Si no hay nada
+  emparejado, es mejor avisar.
+
+**Red** queda afuera del automático en las dos: hay que saber la IP y levantar
+el puente, así que es una elección deliberada.
 
 ### USB directo (tablet Android)
 
