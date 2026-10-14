@@ -9,6 +9,7 @@ export type NavItem = {
 export const NAV_ITEMS: NavItem[] = [
   { href: '/camisetas', label: 'Camisetas', icon: '👕', disponible: true },
   { href: '/plantel', label: 'Plantel', icon: '⚽', disponible: true },
+  { href: '/estadisticas', label: 'Estadísticas', icon: '📊', disponible: true },
   { href: '/facturas', label: 'Facturas', icon: '🧾', disponible: true },
   // El buffet es una app aparte: punto de venta offline, sin la sesión del
   // panel. Va igual en el menú para tenerlo a mano desde acá.
