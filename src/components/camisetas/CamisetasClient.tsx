@@ -7,6 +7,7 @@ import type { GrupoConPersonas, Persona } from '@/lib/types';
 import { ResumenCards } from './ResumenCards';
 import { TallesPedido } from './TallesPedido';
 import { GrupoTabla } from './GrupoTabla';
+import { ExportarPlanilla } from './ExportarPlanilla';
 
 const DEBOUNCE_MS = 600;
 
@@ -222,6 +223,7 @@ export function CamisetasClient({
       </div>
 
       <ResumenCards grupos={grupos} />
+      <ExportarPlanilla grupos={grupos} />
       <TallesPedido grupos={grupos} />
 
       <div className="space-y-4">
