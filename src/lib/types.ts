@@ -92,6 +92,95 @@ export type JugadorInsert = {
   created_at?: string;
 };
 
+// --------------------------------------------------------- estadisticas
+
+export type EstadoPartido =
+  | 'previa'
+  | 'primer_tiempo'
+  | 'entretiempo'
+  | 'segundo_tiempo'
+  | 'final';
+
+export type TipoEvento =
+  | 'pase_dado'
+  | 'pase_errado'
+  | 'asistencia'
+  | 'gol'
+  | 'remate_arco'
+  | 'remate_afuera'
+  | 'recuperacion'
+  | 'perdida'
+  | 'quite'
+  | 'despeje'
+  | 'falta_cometida'
+  | 'falta_recibida';
+
+export type Partido = {
+  id: string;
+  user_id: string;
+  fecha: string;
+  rival: string;
+  torneo: string | null;
+  condicion: 'local' | 'visitante' | null;
+  goles_contra: number;
+  estado: EstadoPartido;
+  inicio_at: string | null;
+  inicio_st_at: string | null;
+  notas: string | null;
+  created_at: string;
+};
+
+export type PartidoInsert = {
+  id?: string;
+  fecha?: string;
+  rival: string;
+  torneo?: string | null;
+  condicion?: 'local' | 'visitante' | null;
+  goles_contra?: number;
+  estado?: EstadoPartido;
+  inicio_at?: string | null;
+  inicio_st_at?: string | null;
+  notas?: string | null;
+};
+
+/** Jugador citado a un partido. Copia el nombre por si lo borran del plantel. */
+export type Citado = {
+  id: string;
+  partido_id: string;
+  jugador_id: string | null;
+  nombre: string;
+  posicion: Posicion | null;
+  orden: number;
+  created_at: string;
+};
+
+export type CitadoInsert = {
+  id?: string;
+  partido_id: string;
+  jugador_id?: string | null;
+  nombre: string;
+  posicion?: Posicion | null;
+  orden?: number;
+};
+
+export type EventoPartido = {
+  id: string;
+  partido_id: string;
+  citado_id: string;
+  tipo: TipoEvento;
+  minuto: number | null;
+  created_at: string;
+};
+
+export type EventoInsert = {
+  id?: string;
+  partido_id: string;
+  citado_id: string;
+  tipo: TipoEvento;
+  minuto?: number | null;
+  created_at?: string;
+};
+
 // --------------------------------------------------------------- buffet
 // La tablet del buffet trabaja offline contra IndexedDB (ver src/db/buffet.ts)
 // y sincroniza contra estas tablas. Acá van con los nombres de Postgres, en
@@ -183,6 +272,24 @@ export type Database = {
         Row: BuffetVentaRow;
         Insert: BuffetVentaRow;
         Update: Partial<BuffetVentaRow>;
+        Relationships: [];
+      };
+      adeo_partidos: {
+        Row: Partido;
+        Insert: PartidoInsert;
+        Update: Partial<PartidoInsert>;
+        Relationships: [];
+      };
+      adeo_partido_jugadores: {
+        Row: Citado;
+        Insert: CitadoInsert;
+        Update: Partial<CitadoInsert>;
+        Relationships: [];
+      };
+      adeo_eventos: {
+        Row: EventoPartido;
+        Insert: EventoInsert;
+        Update: Partial<EventoInsert>;
         Relationships: [];
       };
     };
